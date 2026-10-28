@@ -79,5 +79,30 @@ router.put('/drivers/:id/assignment', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/parents', async (_req, res, next) => {
+  try {
+    res.json(await User.find({ role: 'parent' }).select('name email schoolId assignedBusId'));
+  } catch (error) { next(error); }
+});
+
+router.put('/parents/:id/assignment', async (req, res, next) => {
+  try {
+    const { busId } = req.body;
+    if (!busId) return res.status(400).json({ message: 'Select a bus for this parent.' });
+    const [parent, bus] = await Promise.all([
+      User.findOne({ _id: req.params.id, role: 'parent' }),
+      Bus.findById(busId).populate('routeId')
+    ]);
+    if (!parent) return res.status(404).json({ message: 'Parent account not found.' });
+    if (!bus) return res.status(404).json({ message: 'Bus not found.' });
+    if (parent.schoolId && bus.routeId?.schoolId && String(parent.schoolId) !== String(bus.routeId.schoolId)) {
+      return res.status(403).json({ message: 'Parent and bus must belong to the same school.' });
+    }
+    parent.assignedBusId = bus._id;
+    await parent.save();
+    res.json({ assigned: true, parentId: parent._id, busId: bus._id });
+  } catch (error) { next(error); }
+});
+
 router.use((error, _req, res, _next) => res.status(error.status || 400).json({ message: error.message }));
 module.exports = router;
