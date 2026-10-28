@@ -6,6 +6,7 @@ type Overview = { buses: number; routes: number; activeTrips: number };
 type Bus = { _id: string; busNumber: string; licensePlate: string; capacity: number; studentCount: number; driverId?: string | { _id: string; name: string }; routeId?: string | { _id: string; routeName: string } };
 type Route = { _id: string; routeName: string; schoolId: string; stops?: unknown[] };
 type Driver = { _id: string; name: string; email: string; assignedBusId?: string };
+type Parent = { _id: string; name: string; email: string; assignedBusId?: string };
 
 export default function AdminDashboard() {
   const [token, setToken] = useState('');
@@ -21,6 +22,9 @@ export default function AdminDashboard() {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [parents, setParents] = useState<Parent[]>([]);
+  const [parentId, setParentId] = useState('');
+  const [parentBusId, setParentBusId] = useState('');
   const [assignmentDriverId, setAssignmentDriverId] = useState('');
   const [assignmentBusId, setAssignmentBusId] = useState('');
   const [assignmentRouteId, setAssignmentRouteId] = useState('');
@@ -58,11 +62,13 @@ export default function AdminDashboard() {
     const [busResponse, routeResponse, driverResponse] = await Promise.all([
       fetch(`${API}/api/admin/buses`, { headers }),
       fetch(`${API}/api/admin/routes`, { headers }),
-      fetch(`${API}/api/admin/drivers`, { headers })
+      fetch(`${API}/api/admin/drivers`, { headers }),
+      fetch(`${API}/api/admin/parents`, { headers })
     ]);
     if (busResponse.ok) setBuses(await busResponse.json());
     if (routeResponse.ok) setRoutes(await routeResponse.json());
     if (driverResponse.ok) setDrivers(await driverResponse.json());
+    if (parentResponse.ok) setParents(await parentResponse.json());
   }
 
   function signOut() {
@@ -129,6 +135,19 @@ export default function AdminDashboard() {
     setMessage('Driver, bus, and route assigned successfully.'); await loadFleet();
   }
 
+  async function assignParent() {
+    if (!parentId || !parentBusId) return setMessage('Select both a parent and a bus.');
+    const response = await fetch(`${API}/api/admin/parents/${parentId}/assignment`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ busId: parentBusId })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return setMessage(data?.message || 'Unable to assign a bus to this parent.');
+    setMessage('Parent assigned to bus successfully.');
+    await loadFleet();
+  }
+
   function startEditBus(bus: Bus) {
     setEditingBusId(bus._id); setBusNumber(bus.busNumber); setLicensePlate(bus.licensePlate);
     setCapacity(String(bus.capacity)); setStudentCount(String(bus.studentCount));
@@ -176,6 +195,16 @@ export default function AdminDashboard() {
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <form onSubmit={createDriver} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create driver account</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Driver name" value={driverName} onChange={e => setDriverName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Driver email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={driverPassword} onChange={e => setDriverPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create driver</button></div></form>
           <form onSubmit={createRoute} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><input required className={inputClass} placeholder="School ID" value={schoolId} onChange={e => setSchoolId(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route</button></div></form>
+        </div>
+        <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+          <h3 className="font-black">Assign bus to parent</h3>
+          <p className="mt-1 text-sm text-slate-600">Parents will only be able to track the bus assigned to their account.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+            <label className="font-semibold">Parent account<select className={inputClass} value={parentId} onChange={e => setParentId(e.target.value)}><option value="">Select parent</option>{parents.map(parent => <option key={parent._id} value={parent._id}>{parent.name} ({parent.email})</option>)}</select></label>
+            <label className="font-semibold">Assigned bus<select className={inputClass} value={parentBusId} onChange={e => setParentBusId(e.target.value)}><option value="">Select bus</option>{buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {bus.licensePlate}</option>)}</select></label>
+            <button type="button" onClick={assignParent} className="self-end rounded-xl bg-blue-600 px-5 py-3 font-bold text-white">Assign parent</button>
+          </div>
+          {parents.length === 0 && <p className="mt-3 text-sm text-slate-600">No parent accounts found yet. Parents must register before assignment.</p>}
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           <label className="font-semibold">Driver<select className={inputClass} value={assignmentDriverId} onChange={e => setAssignmentDriverId(e.target.value)}><option value="">Select driver</option>{drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.name}</option>)}</select></label>
