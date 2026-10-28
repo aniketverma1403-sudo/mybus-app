@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const busSchema = new mongoose.Schema(
   {
     busNumber: { type: String, required: true, unique: true, trim: true },
+    schoolId: { type: String, required: true, trim: true, index: true },
     capacity: { type: Number, required: true, min: 1 },
     licensePlate: { type: String, trim: true, uppercase: true, default: '' },
     insuranceExpiry: { type: Date, default: null },
