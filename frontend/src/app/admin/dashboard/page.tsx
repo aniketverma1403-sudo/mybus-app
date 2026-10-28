@@ -41,14 +41,14 @@ export default function AdminDashboard() {
     const response = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const data = await response.json();
     if (!response.ok || data.user?.role !== 'admin') { setMessage(data.message || 'This account does not have administrator access.'); return; }
-    localStorage.setItem('busToken', data.token); setToken(data.token); setPassword(''); setMessage(`Welcome, ${data.user.name}. Admin session started.`); await load(data.token); await loadFleet(data.token);
+    localStorage.setItem('adminToken', data.token); setToken(data.token); setPassword(''); setMessage(`Welcome, ${data.user.name}. Admin session started.`); await load(data.token); await loadFleet(data.token);
   }
 
   async function load(tokenValue = token) {
     if (!tokenValue) return;
     const response = await fetch(`${API}/api/admin/overview`, { headers: { Authorization: `Bearer ${tokenValue}` } });
     if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('busToken');
+      localStorage.removeItem('adminToken');
       setToken('');
       setMessage('This saved session is not an administrator session. Please sign in again.');
       return;
@@ -72,14 +72,14 @@ export default function AdminDashboard() {
   }
 
   function signOut() {
-    localStorage.removeItem('busToken');
+    localStorage.removeItem('adminToken');
     setToken('');
     setOverview({ buses: 0, routes: 0, activeTrips: 0 });
     setMessage('Signed out.');
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem('busToken') || '';
+    const saved = localStorage.getItem('adminToken') || '';
     setToken(saved);
     if (saved) { load(saved); loadFleet(saved); }
   }, []);
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
       });
       const data = await response.json().catch(() => null);
       if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('busToken'); setToken('');
+        localStorage.removeItem('adminToken'); setToken('');
         setMessage('Your session is no longer authorized for the administrator dashboard. Please sign in again.'); return;
       }
       if (!response.ok) { setMessage(data?.message || `Unable to add bus (${response.status}).`); return; }
