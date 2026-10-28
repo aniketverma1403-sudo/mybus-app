@@ -46,9 +46,9 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   socket.on('join-bus-room', async (requestedBusId) => {
     const user = socket.data.user;
-    if (!requestedBusId || !['parent', 'driver'].includes(user.role)) return;
+    if (!requestedBusId || !['parent', 'student', 'driver'].includes(user.role)) return;
     try {
-      let allowed = user.role === 'parent' && user.assignedBusId === String(requestedBusId);
+      let allowed = ['parent', 'student'].includes(user.role) && user.assignedBusId === String(requestedBusId);
       if (user.role === 'driver') allowed = Boolean(await Bus.findOne({ _id: requestedBusId, driverId: user.id }).select('_id'));
       if (!allowed) return socket.emit('tracking-error', { message: 'You are not authorized to view this bus.' });
       socket.join(String(requestedBusId));
