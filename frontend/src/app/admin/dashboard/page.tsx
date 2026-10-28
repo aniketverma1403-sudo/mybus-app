@@ -36,6 +36,10 @@ export default function AdminDashboard() {
   const [schoolId, setSchoolId] = useState('school-demo');
   const [editingBusId, setEditingBusId] = useState('');
 
+  const [parentName, setParentName] = useState('');
+  const [parentEmail, setParentEmail] = useState('');
+  const [parentPassword, setParentPassword] = useState('');
+
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const response = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
@@ -127,6 +131,15 @@ export default function AdminDashboard() {
     setMessage(`Route ${data.routeName} created.`); setRouteName(''); await loadFleet();
   }
 
+  async function createParent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await fetch(`${API}/api/admin/parents`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: parentName, email: parentEmail, password: parentPassword }) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return setMessage(data?.message || 'Unable to create parent account.');
+    setMessage(`Parent ${data.name} created. Use the parent email and password to sign in.`);
+    setParentName(''); setParentEmail(''); setParentPassword(''); await loadFleet();
+  }
+
   async function assignDriver(driverId: string, busId: string, routeId: string) {
     if (!busId || !routeId) return setMessage('Select both a bus and a route.');
     const response = await fetch(`${API}/api/admin/drivers/${driverId}/assignment`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ busId, routeId }) });
@@ -151,6 +164,7 @@ export default function AdminDashboard() {
   function startEditBus(bus: Bus) {
     setEditingBusId(bus._id); setBusNumber(bus.busNumber); setLicensePlate(bus.licensePlate);
     setCapacity(String(bus.capacity)); setStudentCount(String(bus.studentCount));
+    window.requestAnimationFrame(() => document.getElementById('bus-registration-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   function cancelEditBus() {
@@ -179,7 +193,7 @@ export default function AdminDashboard() {
       <header className="rounded-3xl bg-[#18201d] p-7 text-white md:p-10"><p className="font-bold uppercase tracking-[0.2em] text-[#d7ff62]">Admin control center</p><h1 className="mt-3 text-4xl font-black md:text-5xl">Fleet overview</h1><p className="mt-3 text-slate-300">Register vehicles and monitor active school routes.</p></header>
       <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm"><h2 className="font-bold">Administrator sign in</h2>{!token ? <form onSubmit={login} className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]"><input required type="email" className="rounded-xl border border-slate-300 px-4 py-3 text-slate-950" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Admin email" /><input required type="password" className="rounded-xl border border-slate-300 px-4 py-3 text-slate-950" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" /><button className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white">Sign in</button></form> : <div className="mt-3 flex items-center justify-between gap-3"><p className="font-semibold text-emerald-700">Administrator session active</p><div className="flex gap-2"><button onClick={() => load()} className="rounded-xl border border-slate-300 px-5 py-3 font-bold">Refresh</button><button onClick={signOut} className="rounded-xl border border-slate-300 px-5 py-3 font-bold">Sign out</button></div></div>}</section>
       <div className="mt-5 grid gap-4 md:grid-cols-3">{Object.entries(overview).map(([label, value]) => <div key={label} className="rounded-2xl bg-white p-6 shadow-sm"><p className="capitalize text-slate-500">{label.replace(/([A-Z])/g, ' $1')}</p><strong className="text-5xl">{value}</strong></div>)}</div>
-      <form onSubmit={editingBusId ? updateBus : addBus} className="mt-5 rounded-3xl bg-white p-6 shadow-sm">
+      <form id="bus-registration-form" onSubmit={editingBusId ? updateBus : addBus} className="mt-5 scroll-mt-5 rounded-3xl bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-black">{editingBusId ? 'Edit bus' : 'Register a bus'}</h2>{editingBusId && <button type="button" onClick={cancelEditBus} className="rounded-xl border px-4 py-2 font-bold">Cancel edit</button>}</div>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="font-semibold text-slate-700">Bus number<input required className={inputClass} value={busNumber} onChange={(e) => setBusNumber(e.target.value)} placeholder="Example: SB-12" /></label>

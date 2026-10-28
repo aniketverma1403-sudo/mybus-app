@@ -227,6 +227,19 @@ router.put('/parents/:id/assignment', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/parents', async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body || {};
+    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ message: 'Name, email, and a password of at least 8 characters are required.' });
+    }
+    const parent = await User.create({
+      name: name.trim(), email: email.trim().toLowerCase(), password, role: 'parent', schoolId: adminSchool(req) || null
+    });
+    res.status(201).json({ id: parent._id, name: parent.name, email: parent.email });
+  } catch (error) { next(error); }
+});
+
 router.use((error, _req, res, _next) => {
   if (error.code === 11000) return res.status(409).json({ message: 'A record with that unique value already exists.' });
   res.status(error.status || 400).json({ message: error.message || 'Request could not be completed.' });

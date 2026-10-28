@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { socket } from '@/utils/socket';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-type Assignment = { bus?: { _id: string; busNumber: string }; route?: { _id: string; routeName: string; stops?: unknown[] } };
+type Assignment = { bus?: { _id: string; busNumber: string }; route?: { _id: string; routeName: string; stops?: unknown[] }; trip?: { _id: string } | null };
 
 export default function DriverTracker() {
   const [token, setToken] = useState('');
@@ -16,13 +16,29 @@ export default function DriverTracker() {
   const [status, setStatus] = useState('Sign in to load your assigned route.');
   const [gpsReady, setGpsReady] = useState(false);
   const watchId = useRef<number | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
 
   async function loadAssignment(savedToken: string) {
     const response = await fetch(`${API}/api/trips/assignment`, { headers: { Authorization: `Bearer ${savedToken}` } });
     const data = await response.json();
     if (!response.ok) { setStatus(data.message || 'Your account has no assigned bus yet.'); return; }
     setAssignment(data);
-    setStatus(`Ready for ${data.route?.routeName || 'your route'}.`);
+    if (data.trip?._id) {
+      setTripId(data.trip._id);
+      setActive(true);
+      setGpsReady(true);
+      setStatus('Trip resumed — live location sharing restored.');
+      socket.auth = { token: savedToken };
+      socket.connect();
+      socket.emit('join-bus-room', data.bus._id);
+      if (watchId.current === null) {
+        watchId.current = navigator.geolocation.watchPosition((position) => {
+          socket.emit('update-location', { tripId: data.trip._id, busId: data.bus._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
+        }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+      }
+    } else {
+      setStatus(`Ready for ${data.route?.routeName || 'your route'}.`);
+    }
   }
 
   useEffect(() => {
@@ -83,6 +99,13 @@ export default function DriverTracker() {
     } catch (_error) { setStatus('Network error while ending trip. GPS sharing has stopped on this device.'); }
   }
 
+  useEffect(() => {
+    const update = () => setNow(new Date());
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return <main className="min-h-screen bg-[#111713] px-4 py-6 text-white">
     <div className="mx-auto max-w-md">
       <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.25em] text-[#d7ff62]">School bus tracker</p><h1 className="mt-2 text-3xl font-black">Driver route</h1></div><div className="flex items-center gap-3">{token && <button onClick={signOut} className="text-sm font-semibold text-white/70 underline">Sign out</button>}<span className={`h-3 w-3 rounded-full ${gpsReady ? 'bg-[#d7ff62]' : 'bg-red-400'}`} /></div></div>
@@ -93,7 +116,10 @@ export default function DriverTracker() {
         {!active ? <button onClick={startTrip} className="mt-5 h-24 w-full rounded-3xl bg-[#d7ff62] text-2xl font-black text-[#111713]">START TRIP</button> : <button onClick={endTrip} className="mt-5 h-24 w-full rounded-3xl bg-[#ff7051] text-2xl font-black text-white">END TRIP</button>}
         <div className="mt-5 grid grid-cols-2 gap-3"><button className="rounded-2xl bg-[#202a24] p-5 font-bold">Report delay</button><button className="rounded-2xl bg-red-500 p-5 font-bold">SOS emergency</button></div>
       </>}
-      <p className="mt-5 rounded-xl bg-white/10 p-4 text-center text-sm text-white/80">{status}</p>
+      <p className="mt-5 rounded-xl bg-white/10 p-4 text-center text-sm text-white/80">{now ? now.toLocaleString() : 'Loading date and time…'}</p>
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center">
+        <p className="text-sm font-bold text-[#d7ff62]">{now ? now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Loading date…'}</p>
+      </div>
     </div>
   </main>;
 }

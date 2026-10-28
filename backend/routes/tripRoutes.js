@@ -22,7 +22,10 @@ router.post('/start', auth('driver'), async (req, res, next) => {
       return res.status(403).json({ message: 'This route is not assigned to your school account.' });
     }
     const existing = await TripSession.findOne({ busId, status: 'active' });
-    if (existing) return res.status(409).json({ message: 'An active trip already exists for this bus.' });
+    if (existing) {
+      if (String(existing.driverId) === String(req.user.sub)) return res.status(200).json(existing);
+      return res.status(409).json({ message: 'An active trip already exists for this bus.' });
+    }
     res.status(201).json(await TripSession.create({ busId, routeId, driverId: req.user.sub }));
   } catch (error) { next(error); }
 });
@@ -66,7 +69,8 @@ router.get('/assignment', auth('driver'), async (req, res, next) => {
     if (driver?.schoolId && String(driver.schoolId) !== String(bus.routeId.schoolId)) {
       return res.status(403).json({ message: 'Your bus route belongs to a different school.' });
     }
-    res.json({ bus, route: bus.routeId });
+    const trip = await TripSession.findOne({ busId: bus._id, driverId: req.user.sub, status: 'active' }).sort({ startedAt: -1 });
+    res.json({ bus, route: bus.routeId, trip: trip || null });
   } catch (error) { next(error); }
 });
 
