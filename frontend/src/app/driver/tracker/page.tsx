@@ -40,6 +40,15 @@ export default function DriverTracker() {
     localStorage.setItem('driverToken', data.token); setToken(data.token); setPassword(''); await loadAssignment(data.token);
   }
 
+  function signOut() {
+    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+    watchId.current = null;
+    socket.disconnect();
+    localStorage.removeItem('driverToken');
+    setToken(''); setAssignment({}); setTripId(''); setActive(false); setGpsReady(false);
+    setStatus('Signed out.');
+  }
+
   async function startTrip() {
     let currentAssignment = assignment;
     const refresh = await fetch(`${API}/api/trips/assignment`, { headers: { Authorization: `Bearer ${token}` } });
@@ -76,7 +85,7 @@ export default function DriverTracker() {
 
   return <main className="min-h-screen bg-[#111713] px-4 py-6 text-white">
     <div className="mx-auto max-w-md">
-      <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.25em] text-[#d7ff62]">School bus tracker</p><h1 className="mt-2 text-3xl font-black">Driver route</h1></div><span className={`h-3 w-3 rounded-full ${gpsReady ? 'bg-[#d7ff62]' : 'bg-red-400'}`} /></div>
+      <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.25em] text-[#d7ff62]">School bus tracker</p><h1 className="mt-2 text-3xl font-black">Driver route</h1></div><div className="flex items-center gap-3">{token && <button onClick={signOut} className="text-sm font-semibold text-white/70 underline">Sign out</button>}<span className={`h-3 w-3 rounded-full ${gpsReady ? 'bg-[#d7ff62]' : 'bg-red-400'}`} /></div></div>
       {!token ? <form onSubmit={login} className="mt-8 space-y-4 rounded-3xl bg-white p-5 text-slate-950">
         <h2 className="text-xl font-black">Sign in</h2><input required type="email" className="w-full rounded-xl border border-slate-300 p-4 text-slate-950 placeholder:text-slate-400" placeholder="Driver email" value={email} onChange={(e) => setEmail(e.target.value)} /><input required type="password" className="w-full rounded-xl border border-slate-300 p-4 text-slate-950 placeholder:text-slate-400" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} /><button className="h-14 w-full rounded-xl bg-[#d7ff62] font-black text-slate-950">SIGN IN</button>
       </form> : <>
