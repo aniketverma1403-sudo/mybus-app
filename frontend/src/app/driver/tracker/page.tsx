@@ -53,7 +53,7 @@ export default function DriverTracker() {
     const response = await fetch(`${API}/api/trips/start`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ busId: currentAssignment.bus._id, routeId: currentAssignment.route._id }) });
     const data = await response.json();
     if (!response.ok) return setStatus(data.message || 'Unable to start trip');
-    setTripId(data._id); setActive(true); setGpsReady(true); socket.connect(); socket.emit('join-bus-room', currentAssignment.bus._id);
+    setTripId(data._id); setActive(true); setGpsReady(true); socket.auth = { token }; socket.connect(); socket.emit('join-bus-room', currentAssignment.bus._id);
     watchId.current = navigator.geolocation.watchPosition((position) => {
       socket.emit('update-location', { tripId: data._id, busId: currentAssignment.bus?._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
     }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
@@ -61,9 +61,15 @@ export default function DriverTracker() {
   }
 
   async function endTrip() {
-    await fetch(`${API}/api/trips/${tripId}/end`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
     if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
-    watchId.current = null; socket.disconnect(); setActive(false); setGpsReady(false); setStatus('Trip completed safely.');
+    watchId.current = null;
+    socket.disconnect();
+    try {
+      const response = await fetch(`${API}/api/trips/${tripId}/end`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) { setStatus(data?.message || 'Unable to end trip. Please contact the administrator.'); return; }
+      setActive(false); setGpsReady(false); setStatus('Trip completed safely.');
+    } catch (_error) { setStatus('Network error while ending trip. GPS sharing has stopped on this device.'); }
   }
 
   return <main className="min-h-screen bg-[#111713] px-4 py-6 text-white">
