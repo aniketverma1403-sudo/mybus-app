@@ -18,7 +18,7 @@ async function main() {
     email,
     password: ADMIN_PASSWORD,
     role: 'admin',
-    schoolId: SCHOOL_ID?.trim() || undefined
+    schoolId: SCHOOL_ID.trim()
   });
   console.log(`Created administrator account ${admin.email} (${admin._id}). Remove ADMIN_PASSWORD from your environment after setup.`);
 }
