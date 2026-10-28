@@ -25,6 +25,8 @@ export default function ParentMap() {
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState('Sign in to view the bus assigned by your school.');
   const [loading, setLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [lastLocationAt, setLastLocationAt] = useState<Date | null>(null);
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const loadAssignment = useCallback(async (savedToken: string) => {
@@ -40,6 +42,9 @@ export default function ParentMap() {
     const location = data.trip?.currentLocation;
     if (location && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)) {
       setPosition({ lat: location.latitude, lng: location.longitude });
+      setLastLocationAt(data.trip?.updatedAt ? new Date(data.trip.updatedAt) : new Date());
+    } else {
+      setLastLocationAt(null);
     }
     setStatus(data.trip ? 'Your assigned bus trip is active.' : 'Your assigned bus is not currently on an active trip.');
   }, []);
@@ -56,6 +61,7 @@ export default function ParentMap() {
       setAssignment((current) => {
         if (!current || current.bus._id !== location.busId) return current;
         setPosition({ lat: location.latitude, lng: location.longitude });
+        setLastLocationAt(new Date());
         return current;
       });
     };
@@ -89,6 +95,15 @@ export default function ParentMap() {
     setLoading(true);
     setStatus('Signing in…');
     try {
+      if (registering) {
+        const registration = await fetch(`${API}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: email.split('@')[0], email, password })
+        });
+        const registrationData = await registration.json().catch(() => ({}));
+        if (!registration.ok) { setStatus(registrationData.message || 'Unable to create parent account.'); return; }
+      }
       const response = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,8 +139,7 @@ export default function ParentMap() {
     ? Math.round(distanceBetween(position.lat, position.lng, nextStop.latitude, nextStop.longitude) * 10) / 10
     : null;
   const etaMinutes = distanceKm !== null ? Math.ceil(distanceKm / 25 * 60) : null;
-  const locationUpdated = assignment?.trip?.updatedAt ? new Date(assignment.trip.updatedAt) : null;
-  const locationIsStale = locationUpdated ? Date.now() - locationUpdated.getTime() > 60_000 : !position;
+  const locationIsStale = lastLocationAt ? Date.now() - lastLocationAt.getTime() > 60_000 : Boolean(assignment?.trip);
 
   return <main className="min-h-screen bg-slate-100">
     <div className="mx-auto grid max-w-6xl gap-5 p-4 md:grid-cols-[350px_1fr] md:p-8">
@@ -135,7 +149,8 @@ export default function ParentMap() {
         {!token ? <form onSubmit={login} className="mt-6 space-y-3">
           <label className="block text-sm font-medium text-slate-600">Parent email<input required type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-2 w-full rounded-xl border p-3 text-slate-900" placeholder="you@example.com" /></label>
           <label className="block text-sm font-medium text-slate-600">Password<input required type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border p-3 text-slate-900" placeholder="Your password" /></label>
-          <button disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white disabled:opacity-60">{loading ? 'Signing in…' : 'Sign in to track'}</button>
+          <button disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white disabled:opacity-60">{loading ? 'Please wait…' : registering ? 'Create parent account' : 'Sign in to track'}</button>
+          <button type="button" onClick={() => setRegistering(value => !value)} className="w-full p-2 text-sm font-semibold text-blue-700 underline">{registering ? 'Already have an account? Sign in' : 'New parent? Create an account'}</button>
         </form> : <>
           <div className="mt-6 rounded-2xl bg-slate-50 p-4">
             <p className="text-sm text-slate-500">Your assigned bus</p>
@@ -146,7 +161,7 @@ export default function ParentMap() {
             <div className="rounded-2xl bg-slate-50 p-4"><small className="text-slate-500">Distance to first stop</small><p className="text-2xl font-bold text-slate-900">{distanceKm === null ? '—' : `${distanceKm} km`}</p></div>
             <div className="rounded-2xl bg-slate-50 p-4"><small className="text-slate-500">Estimated time</small><p className="text-2xl font-bold text-slate-900">{etaMinutes === null ? '—' : `${etaMinutes} min`}</p></div>
           </div>
-          <p className="mt-4 text-sm text-slate-600">{connected ? '🟢 Live connection established' : '⚪ Connecting to live updates'}</p>
+          <div className="mt-4 flex items-center justify-between gap-2 text-sm text-slate-600"><p>{connected ? '🟢 Live connection established' : '⚪ Waiting for live updates'}</p><button onClick={() => void loadAssignment(token)} className="font-semibold text-blue-700 underline">Refresh</button></div>
           {locationIsStale && assignment?.trip && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">Location has not updated recently. The bus position may be out of date.</p>}
         </>}
         <p role="status" className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">{status}</p>
