@@ -27,6 +27,8 @@ Create the first administrator securely. Set `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN
 
 ```sh
 npm run create-admin
+# If upgrading an existing database, migrate legacy buses before using the new school-scoped admin dashboard:
+npm run migrate-bus-schools
 npm run dev
 ```
 
@@ -47,12 +49,14 @@ Open `http://localhost:3000`. Keep API keys and database/JWT secrets out of Git;
 ## 3. Basic workflow
 
 1. Sign in at the Admin dashboard with the bootstrapped administrator.
-2. Create buses and routes, then create driver accounts and assign each driver to a bus and route.
+2. Create buses and routes. Add at least one route stop using `Stop name, latitude, longitude` (one stop per line), then create driver accounts and assign each driver to a bus and route.
 3. Parents create accounts from the Parent tracker sign-in panel.
 4. From the Admin dashboard, assign each parent account to its bus.
 5. The driver signs in, verifies the assignment, and starts the trip to share GPS.
 6. A parent can track only the bus assigned to their account. Location updates require an authenticated Socket.IO connection.
 
-## Current limitations
+## Current status and remaining production work
 
-This is a development prototype, not yet a production-ready school transport system. Before deployment, implement and test full school-level tenant isolation across every database query, parent/student identity verification, route-stop management, trip scheduling, traffic-aware ETA, notifications, rate limiting, audit logs, and production monitoring. The displayed ETA is a rough distance-based estimate, not a navigation/traffic ETA. Test with non-sensitive demo accounts and a persistent staging database before using real student data.
+This remains a development prototype and must not yet be used as the sole source of emergency or school-transport information. Admin bus/route/driver/parent queries are now scoped to the administrator's `schoolId`; buses created after this update carry a school ID. If upgrading an existing database, run `npm run migrate-bus-schools` and inspect its skipped records before relying on the dashboard. The migration derives a bus school from its assigned route or driver and deliberately skips records where neither has a school ID.
+
+The admin dashboard can create routes with ordered stops and review/resolve driver delay and SOS reports. The driver dashboard can recover an active trip after refresh and resume GPS sharing. Still required before production: student and guardian relationship records/verification, secure invitation and password-reset flows, route editing/deletion UI, scheduled and return trips, parent push/SMS notifications, route/traffic-aware ETA, durable GPS history and retention policy, rate limiting, audit logs, CI/build and end-to-end tests, monitoring, database backup/restore drills, and production hosting configuration. The displayed ETA remains a rough distance-based estimate, not a navigation/traffic ETA. Test with non-sensitive demo accounts and a persistent staging database before using real student data.
