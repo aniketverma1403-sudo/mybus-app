@@ -64,11 +64,13 @@ export default function DriverTracker() {
     if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
     watchId.current = null;
     socket.disconnect();
+    setActive(false);
+    setGpsReady(false);
     try {
       const response = await fetch(`${API}/api/trips/${tripId}/end`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json().catch(() => null);
       if (!response.ok) { setStatus(data?.message || 'Unable to end trip. Please contact the administrator.'); return; }
-      setActive(false); setGpsReady(false); setStatus('Trip completed safely.');
+      setStatus('Trip completed safely.');
     } catch (_error) { setStatus('Network error while ending trip. GPS sharing has stopped on this device.'); }
   }
 
