@@ -6,8 +6,8 @@ async function main() {
   const { MONGODB_URI, ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD, SCHOOL_ID } = process.env;
   if (!MONGODB_URI) throw new Error('Set MONGODB_URI in backend/.env.');
   if (process.env.USE_MEMORY_DB === 'true') throw new Error('Use a persistent MongoDB database (set USE_MEMORY_DB=false) to create the first administrator.');
-  if (!ADMIN_NAME?.trim() || !ADMIN_EMAIL?.trim() || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12) {
-    throw new Error('Set ADMIN_NAME, ADMIN_EMAIL, and ADMIN_PASSWORD (at least 12 characters) in backend/.env.');
+  if (!ADMIN_NAME?.trim() || !ADMIN_EMAIL?.trim() || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12 || !SCHOOL_ID?.trim()) {
+    throw new Error('Set ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD (at least 12 characters), and SCHOOL_ID in backend/.env.');
   }
   await mongoose.connect(MONGODB_URI);
   const email = ADMIN_EMAIL.trim().toLowerCase();
