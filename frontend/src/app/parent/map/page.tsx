@@ -26,7 +26,8 @@ export default function ParentMap() {
   const [status, setStatus] = useState('Sign in to view the bus assigned by your school.');
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
-  const [lastLocationAt, setLastLocationAt] = useState<Date | null>(null);\n  const assignedBusIdRef = useRef<string | null>(null);
+  const [lastLocationAt, setLastLocationAt] = useState<Date | null>(null);
+  const assignedBusIdRef = useRef<string | null>(null);
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const loadAssignment = useCallback(async (savedToken: string) => {

@@ -196,16 +196,6 @@ export default function AdminDashboard() {
           <form onSubmit={createDriver} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create driver account</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Driver name" value={driverName} onChange={e => setDriverName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Driver email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={driverPassword} onChange={e => setDriverPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create driver</button></div></form>
           <form onSubmit={createRoute} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><input required className={inputClass} placeholder="School ID" value={schoolId} onChange={e => setSchoolId(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route</button></div></form>
         </div>
-        <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-          <h3 className="font-black">Assign bus to parent</h3>
-          <p className="mt-1 text-sm text-slate-600">Parents will only be able to track the bus assigned to their account.</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-            <label className="font-semibold">Parent account<select className={inputClass} value={parentId} onChange={e => setParentId(e.target.value)}><option value="">Select parent</option>{parents.map(parent => <option key={parent._id} value={parent._id}>{parent.name} ({parent.email})</option>)}</select></label>
-            <label className="font-semibold">Assigned bus<select className={inputClass} value={parentBusId} onChange={e => setParentBusId(e.target.value)}><option value="">Select bus</option>{buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {bus.licensePlate}</option>)}</select></label>
-            <button type="button" onClick={assignParent} className="self-end rounded-xl bg-blue-600 px-5 py-3 font-bold text-white">Assign parent</button>
-          </div>
-          {parents.length === 0 && <p className="mt-3 text-sm text-slate-600">No parent accounts found yet. Parents must register before assignment.</p>}
-        </div>
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           <label className="font-semibold">Driver<select className={inputClass} value={assignmentDriverId} onChange={e => setAssignmentDriverId(e.target.value)}><option value="">Select driver</option>{drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.name}</option>)}</select></label>
           <label className="font-semibold">Bus<select className={inputClass} value={assignmentBusId} onChange={e => setAssignmentBusId(e.target.value)}><option value="">Select bus</option>{buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {bus.licensePlate}</option>)}</select></label>

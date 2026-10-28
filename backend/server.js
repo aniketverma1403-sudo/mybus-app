@@ -13,6 +13,7 @@ const tripRoutes = require('./routes/tripRoutes');
 const TripSession = require('./models/TripSession');
 const User = require('./models/User');
 const Bus = require('./models/Bus');
+const Route = require('./models/Route');
 
 const app = express();
 const server = http.createServer(app);
@@ -83,10 +84,40 @@ async function start() {
   if (!mongoUri) throw new Error('MONGODB_URI is required in backend/.env or enable USE_MEMORY_DB');
   if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is required in backend/.env');
   await mongoose.connect(mongoUri);
+  await ensureDemoData();
   const port = Number(process.env.PORT) || 5001;
   server.listen(port, () => console.log(`Bus tracker API listening on http://localhost:${port}`));
   const shutdown = async () => { await mongoose.disconnect(); await memoryServer?.stop(); server.close(() => process.exit(0)); };
   process.once('SIGINT', shutdown); process.once('SIGTERM', shutdown);
+}
+async function ensureDemoData() {
+  const defaultPassword = 'Demo@1234';
+  const schoolId = process.env.SCHOOL_ID || 'school-demo';
+  let admin = await User.findOne({ email: 'admin@school.com' });
+  if (!admin) admin = await User.create({ name: 'Demo School Admin', email: 'admin@school.com', password: defaultPassword, role: 'admin', schoolId });
+  else await User.updateOne({ _id: admin._id }, { $set: { schoolId } });
+
+  let driver = await User.findOne({ email: 'ramesh@school.com' });
+  if (!driver) driver = await User.create({ name: 'Ramesh', email: 'ramesh@school.com', password: defaultPassword, role: 'driver', schoolId });
+  else await User.updateOne({ _id: driver._id }, { $set: { schoolId } });
+
+  let route = await Route.findOne({ routeName: 'Route A', schoolId });
+  if (!route) route = await Route.create({ routeName: 'Route A', schoolId, stops: [] });
+
+  const busSpecs = [
+    { busNumber: '101', licensePlate: 'HP541234', capacity: 40, studentCount: 0 },
+    { busNumber: '102', licensePlate: 'HP545678', capacity: 35, studentCount: 0 },
+    { busNumber: '103', licensePlate: 'HP549999', capacity: 50, studentCount: 0 }
+  ];
+  for (const spec of busSpecs) {
+    await Bus.findOneAndUpdate({ busNumber: spec.busNumber }, spec, { upsert: true, new: true, setDefaultsOnInsert: true });
+  }
+  let bus101 = await Bus.findOne({ busNumber: '101' });
+  if (bus101) await Bus.updateOne({ _id: bus101._id }, { $set: { driverId: driver._id, routeId: route._id } });
+  await User.updateOne({ _id: driver._id }, { $set: { assignedBusId: bus101._id } });
+
+  await User.updateMany({ role: 'parent', schoolId: null }, { $set: { schoolId } });
+  await User.updateMany({ role: 'parent', assignedBusId: null }, { $set: { assignedBusId: bus101._id } });
 }
 if (require.main === module) start().catch((error) => { console.error(error); process.exit(1); });
 module.exports = { app, server, io };
