@@ -26,7 +26,7 @@ export default function DriverTracker() {
   }
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('busToken') || '';
+    const savedToken = localStorage.getItem('driverToken') || '';
     setToken(savedToken);
     if (savedToken) loadAssignment(savedToken);
     return () => { if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current); socket.disconnect(); };
@@ -37,7 +37,7 @@ export default function DriverTracker() {
     const response = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const data = await response.json();
     if (!response.ok || data.user?.role !== 'driver') { setStatus(data.message || 'This account is not a driver account.'); return; }
-    localStorage.setItem('busToken', data.token); setToken(data.token); setPassword(''); await loadAssignment(data.token);
+    localStorage.setItem('driverToken', data.token); setToken(data.token); setPassword(''); await loadAssignment(data.token);
   }
 
   async function startTrip() {
