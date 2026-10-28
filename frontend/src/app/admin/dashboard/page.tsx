@@ -7,6 +7,7 @@ type Bus = { _id: string; busNumber: string; licensePlate: string; capacity: num
 type Route = { _id: string; routeName: string; schoolId: string; stops?: unknown[] };
 type Driver = { _id: string; name: string; email: string; assignedBusId?: string };
 type Parent = { _id: string; name: string; email: string; assignedBusId?: string };
+type Incident = { _id: string; type: 'delay' | 'sos' | 'breakdown'; message: string; status: 'open' | 'acknowledged' | 'resolved'; createdAt: string; busId?: { busNumber?: string }; driverId?: { name?: string; phone?: string }; routeId?: { routeName?: string } };
 
 export default function AdminDashboard() {
   const [token, setToken] = useState('');
@@ -23,6 +24,7 @@ export default function AdminDashboard() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [parents, setParents] = useState<Parent[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [parentId, setParentId] = useState('');
   const [parentBusId, setParentBusId] = useState('');
   const [assignmentDriverId, setAssignmentDriverId] = useState('');
@@ -59,16 +61,18 @@ export default function AdminDashboard() {
   async function loadFleet(tokenValue = token) {
     if (!tokenValue) return;
     const headers = { Authorization: `Bearer ${tokenValue}` };
-    const [busResponse, routeResponse, driverResponse, parentResponse] = await Promise.all([
+    const [busResponse, routeResponse, driverResponse, parentResponse, incidentResponse] = await Promise.all([
       fetch(`${API}/api/admin/buses`, { headers }),
       fetch(`${API}/api/admin/routes`, { headers }),
       fetch(`${API}/api/admin/drivers`, { headers }),
-      fetch(`${API}/api/admin/parents`, { headers })
+      fetch(`${API}/api/admin/parents`, { headers }),
+      fetch(`${API}/api/incidents/admin`, { headers })
     ]);
     if (busResponse.ok) setBuses(await busResponse.json());
     if (routeResponse.ok) setRoutes(await routeResponse.json());
     if (driverResponse.ok) setDrivers(await driverResponse.json());
     if (parentResponse.ok) setParents(await parentResponse.json());
+    if (incidentResponse.ok) setIncidents(await incidentResponse.json());
   }
 
   function signOut() {
@@ -175,6 +179,22 @@ export default function AdminDashboard() {
     await loadFleet();
   }
 
+  async function updateIncidentStatus(incidentId: string, status: 'acknowledged' | 'resolved') {
+    try {
+      const response = await fetch(`${API}/api/incidents/${incidentId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(data.message || 'Unable to update incident status.');
+      setMessage(`Incident marked ${status}.`);
+      await loadFleet();
+    } catch (_error) {
+      setMessage('Cannot reach the backend to update the incident.');
+    }
+  }
+
   function startEditBus(bus: Bus) {
     setEditingBusId(bus._id); setBusNumber(bus.busNumber); setLicensePlate(bus.licensePlate);
     setCapacity(String(bus.capacity)); setStudentCount(String(bus.studentCount));
@@ -250,6 +270,17 @@ export default function AdminDashboard() {
             </tr>)}</tbody>
           </table>
           {buses.length === 0 && <p className="p-5 text-center text-slate-500">No buses have been registered yet.</p>}
+        </div>
+      </section>
+      <section className="mt-5 rounded-3xl bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-2xl font-black">Driver reports & emergencies</h2><p className="mt-1 text-sm text-slate-500">Reports are tied to an active trip and visible only to this school.</p></div><button onClick={() => loadFleet()} className="rounded-xl border px-4 py-2 font-bold">Refresh reports</button></div>
+        <div className="mt-4 space-y-3">
+          {incidents.map(incident => <article key={incident._id} className={`rounded-2xl border p-4 ${incident.type === 'sos' ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-black uppercase">{incident.type} · {incident.status}</p><p className="mt-1 font-semibold">{incident.message}</p><p className="mt-1 text-sm text-slate-600">Bus: {incident.busId?.busNumber || 'Unknown'} · Driver: {incident.driverId?.name || 'Unknown'} · Route: {incident.routeId?.routeName || 'Unknown'}</p><p className="mt-1 text-xs text-slate-500">{new Date(incident.createdAt).toLocaleString()}</p></div>
+              {incident.status !== 'resolved' && <div className="flex gap-2">{incident.status === 'open' && <button onClick={() => updateIncidentStatus(incident._id, 'acknowledged')} className="rounded-lg border px-3 py-2 text-sm font-bold">Acknowledge</button>}<button onClick={() => updateIncidentStatus(incident._id, 'resolved')} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white">Resolve</button></div>}
+            </div>
+          </article>)}
+          {incidents.length === 0 && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">No reports yet.</p>}
         </div>
       </section>
     </div>
