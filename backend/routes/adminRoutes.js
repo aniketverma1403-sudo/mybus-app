@@ -227,11 +227,33 @@ router.put('/drivers/:id/assignment', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/parents', async (req, res, next) => {
+  try {
+    const { name, email, password, phone } = req.body || {};
+    const schoolId = adminSchool(req);
+    if (!schoolId) return res.status(403).json({ message: 'This administrator is not linked to a school.' });
+    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() ||
+        typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ message: 'Name, email, and a password of at least 8 characters are required.' });
+    }
+    const parent = await User.create({
+      name: name.trim().slice(0, 100),
+      email: email.trim().toLowerCase(),
+      password,
+      phone: typeof phone === 'string' ? phone.trim() : '',
+      role: 'parent',
+      schoolId,
+      assignedBusId: null
+    });
+    res.status(201).json({ id: parent._id, name: parent.name, email: parent.email });
+  } catch (error) { next(error); }
+});
+
 router.get('/parents', async (req, res, next) => {
   try {
     const schoolId = adminSchool(req);
     if (!schoolId) return res.status(403).json({ message: 'This administrator is not linked to a school.' });
-    res.json(await User.find({ role: 'parent', $or: [{ schoolId }, { schoolId: null }] }).select('name email schoolId assignedBusId'));
+    res.json(await User.find({ role: 'parent', schoolId }).select('name email schoolId assignedBusId'));
   }
   catch (error) { next(error); }
 });
@@ -243,7 +265,7 @@ router.put('/parents/:id/assignment', async (req, res, next) => {
     const schoolId = adminSchool(req);
     if (!schoolId) return res.status(403).json({ message: 'This administrator is not linked to a school.' });
     const [parent, bus] = await Promise.all([
-      User.findOne({ _id: req.params.id, role: 'parent', $or: [{ schoolId }, { schoolId: null }] }),
+      User.findOne({ _id: req.params.id, role: 'parent', schoolId }),
       Bus.findOne({ _id: busId, schoolId }).populate('routeId')
     ]);
     if (!parent) return res.status(404).json({ message: 'Parent account not found.' });
