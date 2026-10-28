@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const tripRoutes = require('./routes/tripRoutes');
+const incidentRoutes = require('./routes/incidentRoutes');
 const TripSession = require('./models/TripSession');
 const User = require('./models/User');
 const Bus = require('./models/Bus');
@@ -27,6 +28,7 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/trips', tripRoutes);
+app.use('/api/incidents', incidentRoutes);
 
 // Authenticate every Socket.IO client before allowing tracking events.
 io.use(async (socket, next) => {
