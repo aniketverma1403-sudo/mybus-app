@@ -50,7 +50,7 @@ export default function ParentMap() {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('busToken') || '';
+    const saved = localStorage.getItem('parentToken') || '';
     if (saved) {
       setToken(saved);
       void loadAssignment(saved);
@@ -114,7 +114,7 @@ export default function ParentMap() {
         setStatus(data.message || 'Use a parent account provided or registered for your school.');
         return;
       }
-      localStorage.setItem('busToken', data.token);
+      localStorage.setItem('parentToken', data.token);
       setToken(data.token);
       setPassword('');
       await loadAssignment(data.token);
@@ -125,7 +125,7 @@ export default function ParentMap() {
 
   function signOut() {
     socket.disconnect();
-    localStorage.removeItem('busToken');
+    localStorage.removeItem('parentToken');
     setToken('');
     setAssignment(null);
     setPosition(null);
