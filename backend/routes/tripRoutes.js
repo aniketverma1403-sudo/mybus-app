@@ -71,6 +71,24 @@ router.get('/assignment', auth('driver'), async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/student-assignment', auth('student'), async (req, res, next) => {
+  try {
+    const student = await User.findById(req.user.sub)
+      .select('name schoolId assignedBusId className section guardianUserId')
+      .populate({ path: 'assignedBusId', populate: { path: 'routeId' } });
+    if (!student) return res.status(404).json({ message: 'Student account not found.' });
+    if (!student.assignedBusId) return res.status(404).json({ message: 'No bus is assigned to your account yet. Please contact your school.' });
+    const bus = student.assignedBusId;
+    const route = bus.routeId;
+    if (!route) return res.status(409).json({ message: 'Your assigned bus does not have a route yet.' });
+    if (!student.schoolId || String(student.schoolId) !== String(route.schoolId) || String(bus.schoolId) !== String(student.schoolId)) {
+      return res.status(403).json({ message: 'This assignment does not belong to your school account.' });
+    }
+    const trip = await TripSession.findOne({ busId: bus._id, status: 'active' }).sort({ startedAt: -1 });
+    res.json({ student: { name: student.name, className: student.className, section: student.section }, bus, route, trip });
+  } catch (error) { next(error); }
+});
+
 router.get('/parent-assignment', auth('parent'), async (req, res, next) => {
   try {
     const user = await User.findById(req.user.sub).select('schoolId assignedBusId').populate({
