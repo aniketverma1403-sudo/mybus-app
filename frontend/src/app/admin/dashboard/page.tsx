@@ -59,7 +59,7 @@ export default function AdminDashboard() {
   async function loadFleet(tokenValue = token) {
     if (!tokenValue) return;
     const headers = { Authorization: `Bearer ${tokenValue}` };
-    const [busResponse, routeResponse, driverResponse] = await Promise.all([
+    const [busResponse, routeResponse, driverResponse, parentResponse] = await Promise.all([
       fetch(`${API}/api/admin/buses`, { headers }),
       fetch(`${API}/api/admin/routes`, { headers }),
       fetch(`${API}/api/admin/drivers`, { headers }),
