@@ -66,23 +66,40 @@ export default function DriverTracker() {
   }
 
   async function startTrip() {
+    setStatus('Starting trip…');
     let currentAssignment = assignment;
     const refresh = await fetch(`${API}/api/trips/assignment`, { headers: { Authorization: `Bearer ${token}` } });
     const refreshedAssignment = await refresh.json().catch(() => ({}));
-    if (refresh.ok) {
-      currentAssignment = refreshedAssignment;
-      setAssignment(refreshedAssignment);
-      setStatus(`Ready for ${refreshedAssignment.route?.routeName || 'your route'}.`);
+    if (!refresh.ok || !refreshedAssignment.bus || !refreshedAssignment.route) {
+      return setStatus(refreshedAssignment.message || 'Bus and route assignment could not be loaded. Please sign in again.');
     }
-    if (!currentAssignment.bus || !currentAssignment.route) return setStatus(refresh.ok ? 'Bus assignment is missing. Ask the school administrator to assign both a bus and route.' : (refreshedAssignment.message || 'Unable to load your assignment. Please sign in again.'));
-    const response = await fetch(`${API}/api/trips/start`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ busId: currentAssignment.bus._id, routeId: currentAssignment.route._id }) });
-    const data = await response.json();
-    if (!response.ok) return setStatus(data.message || 'Unable to start trip');
-    setTripId(data._id); setActive(true); setGpsReady(true); socket.auth = { token }; socket.connect(); socket.emit('join-bus-room', currentAssignment.bus._id);
-    watchId.current = navigator.geolocation.watchPosition((position) => {
-      socket.emit('update-location', { tripId: data._id, busId: currentAssignment.bus?._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
-    }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
-    setStatus('Trip active — sharing live location.');
+    currentAssignment = refreshedAssignment;
+    setAssignment(refreshedAssignment);
+
+    const assignedBus = currentAssignment.bus;
+    const assignedRoute = currentAssignment.route;
+    if (!assignedBus || !assignedRoute) return setStatus('Bus and route assignment could not be loaded.');
+    if (refreshedAssignment.trip?._id) {
+      setTripId(refreshedAssignment.trip._id); setActive(true); setGpsReady(true);
+      setStatus('Trip resumed — live location sharing restored.');
+    } else {
+      const response = await fetch(`${API}/api/trips/start`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ busId: assignedBus._id, routeId: assignedRoute._id }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return setStatus(data.message || `Unable to start trip (${response.status}).`);
+      setTripId(data._id); setActive(true); setGpsReady(true); setStatus('Trip active — sharing live location.');
+      refreshedAssignment.trip = data;
+    }
+
+    socket.auth = { token };
+    socket.connect();
+    const tripIdToShare = refreshedAssignment.trip?._id;
+    const beginSharing = () => socket.emit('join-bus-room', currentAssignment.bus?._id);
+    if (socket.connected) beginSharing(); else socket.once('connect', beginSharing);
+    if (watchId.current === null && tripIdToShare && currentAssignment.bus?._id) {
+      watchId.current = navigator.geolocation.watchPosition((position) => {
+        socket.emit('update-location', { tripId: tripIdToShare, busId: currentAssignment.bus?._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
+      }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+    }
   }
 
   async function endTrip() {

@@ -9,6 +9,7 @@ type Position = { lat: number; lng: number };
 type Stop = { stopName: string; latitude: number; longitude: number; orderIndex: number };
 type Bus = { _id: string; busNumber: string; routeId?: { routeName?: string; stops?: Stop[] } };
 type Assignment = { bus: Bus; route?: { routeName?: string; stops?: Stop[] }; trip?: { _id: string; currentLocation?: { latitude: number; longitude: number }; updatedAt?: string; startedAt?: string } | null };
+type Child = { _id: string; name: string; className: string; section?: string; admissionNumber?: string; pickupStop?: string; dropStop?: string; busId?: Bus | string | null; routeId?: { routeName?: string; stops?: Stop[] } | string | null };
 
 function AnimatedMarker({ position }: { position: Position }) {
   const map = useMap();
@@ -137,6 +138,9 @@ export default function ParentMap() {
     : null;
   const etaMinutes = distanceKm !== null ? Math.ceil(distanceKm / 25 * 60) : null;
   const locationIsStale = lastLocationAt ? Date.now() - lastLocationAt.getTime() > 60_000 : Boolean(assignment?.trip);
+
+  const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState('');
 
   return <main className="min-h-screen bg-slate-100">
     <div className="mx-auto grid max-w-6xl gap-5 p-4 md:grid-cols-[350px_1fr] md:p-8">

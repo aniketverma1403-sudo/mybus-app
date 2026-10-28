@@ -5,6 +5,7 @@ const Bus = require('../models/Bus');
 const Route = require('../models/Route');
 const TripSession = require('../models/TripSession');
 const User = require('../models/User');
+const Student = require('../models/Student');
 
 router.use(auth('admin'));
 
@@ -237,6 +238,53 @@ router.post('/parents', async (req, res, next) => {
       name: name.trim(), email: email.trim().toLowerCase(), password, role: 'parent', schoolId: adminSchool(req) || null
     });
     res.status(201).json({ id: parent._id, name: parent.name, email: parent.email });
+  } catch (error) { next(error); }
+});
+
+router.get('/students', async (req, res, next) => {
+  try {
+    const schoolId = adminSchool(req);
+    res.json(await Student.find(schoolId ? { schoolId } : {}).populate('guardianIds', 'name email').populate('busId', 'busNumber licensePlate').populate('routeId', 'routeName'));
+  } catch (error) { next(error); }
+});
+
+router.post('/students', async (req, res, next) => {
+  try {
+    const { name, admissionNumber, className, section } = req.body || {};
+    const schoolId = adminSchool(req);
+    if (!schoolId) return res.status(403).json({ message: 'Administrator school is not configured.' });
+    if (typeof name !== 'string' || !name.trim() || typeof className !== 'string' || !className.trim()) return res.status(400).json({ message: 'Student name and class are required.' });
+    res.status(201).json(await Student.create({ name: name.trim(), admissionNumber: typeof admissionNumber === 'string' ? admissionNumber.trim() : '', className: className.trim(), section: typeof section === 'string' ? section.trim() : '', schoolId }));
+  } catch (error) { next(error); }
+});
+
+router.patch('/students/:id/assignment', async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) return res.status(400).json({ message: 'Invalid student ID.' });
+    const { guardianIds = [], busId, routeId, pickupStop = '', dropStop = '' } = req.body || {};
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Student not found.' });
+    const schoolId = adminSchool(req);
+    if (schoolId && student.schoolId !== schoolId) return res.status(403).json({ message: 'Student belongs to a different school.' });
+    const guardians = await User.find({ _id: { $in: guardianIds }, role: 'parent', schoolId: student.schoolId }).select('_id');
+    if (guardians.length !== guardianIds.length) return res.status(400).json({ message: 'Every guardian must be a parent from this school.' });
+    let resolvedRouteId = routeId;
+    if (busId) {
+      const bus = await Bus.findById(busId).populate('routeId');
+      if (!bus || (schoolId && String(bus.routeId?.schoolId) !== schoolId)) return res.status(400).json({ message: 'Select a valid bus from this school.' });
+      resolvedRouteId = bus.routeId?._id || routeId;
+      student.busId = bus._id;
+    }
+    if (resolvedRouteId) {
+      const route = await Route.findById(resolvedRouteId);
+      if (!route || (schoolId && route.schoolId !== schoolId)) return res.status(400).json({ message: 'Select a valid route from this school.' });
+      student.routeId = route._id;
+    }
+    student.guardianIds = guardians.map(parent => parent._id);
+    student.pickupStop = typeof pickupStop === 'string' ? pickupStop.trim() : '';
+    student.dropStop = typeof dropStop === 'string' ? dropStop.trim() : '';
+    await student.save();
+    res.json(student);
   } catch (error) { next(error); }
 });
 

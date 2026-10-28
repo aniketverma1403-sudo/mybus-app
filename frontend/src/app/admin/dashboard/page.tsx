@@ -7,6 +7,7 @@ type Bus = { _id: string; busNumber: string; licensePlate: string; capacity: num
 type Route = { _id: string; routeName: string; schoolId: string; stops?: unknown[] };
 type Driver = { _id: string; name: string; email: string; assignedBusId?: string };
 type Parent = { _id: string; name: string; email: string; assignedBusId?: string };
+type Student = { _id: string; name: string; admissionNumber: string; className: string; section: string; guardianIds?: Parent[]; busId?: Bus | string | null; routeId?: Route | string | null; pickupStop?: string; dropStop?: string };
 
 export default function AdminDashboard() {
   const [token, setToken] = useState('');
@@ -40,6 +41,17 @@ export default function AdminDashboard() {
   const [parentEmail, setParentEmail] = useState('');
   const [parentPassword, setParentPassword] = useState('');
 
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentName, setStudentName] = useState('');
+  const [admissionNumber, setAdmissionNumber] = useState('');
+  const [studentClass, setStudentClass] = useState('');
+  const [studentSection, setStudentSection] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [studentGuardianId, setStudentGuardianId] = useState('');
+  const [studentBusId, setStudentBusId] = useState('');
+  const [studentPickupStop, setStudentPickupStop] = useState('');
+  const [studentDropStop, setStudentDropStop] = useState('');
+
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const response = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
@@ -63,12 +75,11 @@ export default function AdminDashboard() {
   async function loadFleet(tokenValue = token) {
     if (!tokenValue) return;
     const headers = { Authorization: `Bearer ${tokenValue}` };
-    const [busResponse, routeResponse, driverResponse, parentResponse] = await Promise.all([
-      fetch(`${API}/api/admin/buses`, { headers }),
-      fetch(`${API}/api/admin/routes`, { headers }),
-      fetch(`${API}/api/admin/drivers`, { headers }),
-      fetch(`${API}/api/admin/parents`, { headers })
+    const [studentResponse, ...fleetResponses] = await Promise.all([
+      fetch(`${API}/api/admin/students`, { headers }), fetch(`${API}/api/admin/buses`, { headers }), fetch(`${API}/api/admin/routes`, { headers }), fetch(`${API}/api/admin/drivers`, { headers }), fetch(`${API}/api/admin/parents`, { headers })
     ]);
+    const [busResponse, routeResponse, driverResponse, parentResponse] = fleetResponses;
+    if (studentResponse.ok) setStudents(await studentResponse.json());
     if (busResponse.ok) setBuses(await busResponse.json());
     if (routeResponse.ok) setRoutes(await routeResponse.json());
     if (driverResponse.ok) setDrivers(await driverResponse.json());
@@ -184,6 +195,24 @@ export default function AdminDashboard() {
     const response = await fetch(`${API}/api/admin/buses/${busId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     if (!response.ok && response.status !== 204) { const data = await response.json().catch(() => null); return setMessage(data?.message || 'Unable to delete bus.'); }
     setMessage(`Bus ${busLabel} deleted.`); await loadFleet(); await load();
+  }
+
+  async function createStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await fetch(`${API}/api/admin/students`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: studentName, admissionNumber, className: studentClass, section: studentSection }) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return setMessage(data?.message || 'Unable to create student.');
+    setMessage(`Student ${data.name} created.`); setStudentName(''); setAdmissionNumber(''); setStudentClass(''); setStudentSection(''); await loadFleet();
+  }
+
+  async function assignStudent() {
+    if (!studentId || !studentGuardianId || !studentBusId) return setMessage('Select a student, guardian, and bus.');
+    const bus = buses.find(item => item._id === studentBusId);
+    const routeId = typeof bus?.routeId === 'string' ? bus.routeId : bus?.routeId?._id;
+    const response = await fetch(`${API}/api/admin/students/${studentId}/assignment`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ guardianIds: [studentGuardianId], busId: studentBusId, routeId, pickupStop: studentPickupStop, dropStop: studentDropStop }) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return setMessage(data?.message || 'Unable to assign student transport.');
+    setMessage(`Student ${data.name} assigned successfully.`); await loadFleet();
   }
 
   const inputClass = 'mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100';
