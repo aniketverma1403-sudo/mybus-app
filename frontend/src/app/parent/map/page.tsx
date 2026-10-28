@@ -58,12 +58,8 @@ export default function ParentMap() {
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
     const onLocation = (location: { busId: string; latitude: number; longitude: number }) => {
-      setAssignment((current) => {
-        if (!current || current.bus._id !== location.busId) return current;
-        setPosition({ lat: location.latitude, lng: location.longitude });
-        setLastLocationAt(new Date());
-        return current;
-      });
+      setPosition({ lat: location.latitude, lng: location.longitude });
+      setLastLocationAt(new Date());
     };
     const onTrackingError = (error: { message?: string }) => setStatus(error.message || 'Tracking permission was denied.');
     socket.on('connect', onConnect);
