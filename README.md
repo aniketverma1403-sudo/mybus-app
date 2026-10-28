@@ -23,14 +23,14 @@ Set these values in `backend/.env`:
 - `CLIENT_URL=http://localhost:3000`
 - `USE_MEMORY_DB=false` when using a persistent database
 
-Create the first administrator securely. Add temporary `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (at least 12 characters), and optionally `SCHOOL_ID` to `backend/.env`, then run:
+Create the first administrator securely. Set `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (at least 12 characters), and a stable `SCHOOL_ID` in `backend/.env`, then run:
 
 ```sh
 npm run create-admin
 npm run dev
 ```
 
-The API and Socket.IO server run at `http://localhost:5001`. Remove the temporary `ADMIN_PASSWORD` value after creating the account. Public registration creates parent accounts only; it cannot create administrator or driver accounts.
+The API and Socket.IO server run at `http://localhost:5001`. Remove the temporary `ADMIN_PASSWORD` value after creating the account. Public registration creates parent accounts only; it cannot create administrator or driver accounts. The school ID is assigned by the server for routes and driver accounts; parent registration cannot choose a school ID.
 
 ## 2. Configure and start the frontend
 
