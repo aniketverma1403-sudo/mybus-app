@@ -34,6 +34,9 @@ export default function AdminDashboard() {
   const [driverName, setDriverName] = useState('');
   const [driverEmail, setDriverEmail] = useState('');
   const [driverPassword, setDriverPassword] = useState('');
+  const [parentName, setParentName] = useState('');
+  const [parentEmail, setParentEmail] = useState('');
+  const [parentPassword, setParentPassword] = useState('');
   const [routeName, setRouteName] = useState('');
   const [routeStopsText, setRouteStopsText] = useState('Main Gate, 31.1048, 77.1734');
   const [editingBusId, setEditingBusId] = useState('');
@@ -121,6 +124,24 @@ export default function AdminDashboard() {
     const data = await response.json().catch(() => null);
     if (!response.ok) return setMessage(data?.message || 'Unable to create driver.');
     setMessage(`Driver ${data.name} created.`); setDriverName(''); setDriverEmail(''); setDriverPassword(''); await loadFleet();
+  }
+
+  async function createParent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const response = await fetch(`${API}/api/admin/parents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: parentName, email: parentEmail, password: parentPassword })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return setMessage(data.message || 'Unable to create parent account.');
+      setMessage(`Parent account created for ${data.name}. Share the credentials securely and ask them to change the password when that feature is available.`);
+      setParentName(''); setParentEmail(''); setParentPassword('');
+      await loadFleet();
+    } catch (_error) {
+      setMessage('Cannot reach the backend to create the parent account.');
+    }
   }
 
   async function createRoute(event: FormEvent<HTMLFormElement>) {
@@ -239,9 +260,10 @@ export default function AdminDashboard() {
       </form>
       <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4"><div><h2 className="text-2xl font-black">Fleet, drivers & routes</h2><p className="mt-1 text-sm text-slate-500">View buses and bind each driver to a bus and route.</p></div><button onClick={() => loadFleet()} className="rounded-xl border px-4 py-2 font-bold">Refresh</button></div>
-        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="mt-5 grid gap-5 lg:grid-cols-3">
           <form onSubmit={createDriver} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create driver account</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Driver name" value={driverName} onChange={e => setDriverName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Driver email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={driverPassword} onChange={e => setDriverPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create driver</button></div></form>
-          <form onSubmit={createRoute} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route with stops</h3><p className="mt-1 text-sm text-slate-600">Add one stop per line in this format: name, latitude, longitude. Stops stay in the order entered.</p><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><textarea required rows={4} className={inputClass} placeholder={'School Gate, 31.1048, 77.1734\nMarket, 31.1080, 77.1800'} value={routeStopsText} onChange={e => setRouteStopsText(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route and stops</button></div></form>
+          <form onSubmit={createParent} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create parent account</h3><p className="mt-1 text-sm text-slate-600">Creates a parent account under this school.</p><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Parent name" value={parentName} onChange={e => setParentName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Parent email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Temporary password (8+ characters)" value={parentPassword} onChange={e => setParentPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create parent</button></div></form>
+          <form onSubmit={createRoute className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route with stops</h3><p className="mt-1 text-sm text-slate-600">Add one stop per line in this format: name, latitude, longitude. Stops stay in the order entered.</p><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><textarea required rows={4} className={inputClass} placeholder={'School Gate, 31.1048, 77.1734\nMarket, 31.1080, 77.1800'} value={routeStopsText} onChange={e => setRouteStopsText(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route and stops</button></div></form>
         </div>
         <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
           <h3 className="font-black">Assign bus to parent</h3>
@@ -251,7 +273,7 @@ export default function AdminDashboard() {
             <label className="font-semibold">Assigned bus<select className={inputClass} value={parentBusId} onChange={e => setParentBusId(e.target.value)}><option value="">Select bus</option>{buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {bus.licensePlate}</option>)}</select></label>
             <button type="button" onClick={assignParent} className="self-end rounded-xl bg-blue-600 px-5 py-3 font-bold text-white">Assign parent</button>
           </div>
-          {parents.length === 0 && <p className="mt-3 text-sm text-slate-600">No parent accounts found yet. Parents must register before assignment.</p>}
+          {parents.length === 0 && <p className="mt-3 text-sm text-slate-600">No parent accounts found for this school. Create a parent account above before assigning a bus.</p>}
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-3">
           <label className="font-semibold">Driver<select className={inputClass} value={assignmentDriverId} onChange={e => setAssignmentDriverId(e.target.value)}><option value="">Select driver</option>{drivers.map(driver => <option key={driver._id} value={driver._id}>{driver.name}</option>)}</select></label>
