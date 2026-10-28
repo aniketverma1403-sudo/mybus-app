@@ -34,11 +34,13 @@ export default function ParentMap() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       setAssignment(null);
+      assignedBusIdRef.current = null;
       setPosition(null);
       setStatus(data.message || 'Unable to load your school bus assignment.');
       return;
     }
     setAssignment(data);
+    assignedBusIdRef.current = data.bus?._id ? String(data.bus._id) : null;
     const location = data.trip?.currentLocation;
     if (location && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)) {
       setPosition({ lat: location.latitude, lng: location.longitude });
@@ -58,6 +60,8 @@ export default function ParentMap() {
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
     const onLocation = (location: { busId: string; latitude: number; longitude: number }) => {
+      if (!assignedBusIdRef.current || String(location.busId) !== assignedBusIdRef.current) return;
+      if (!Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return;
       setPosition({ lat: location.latitude, lng: location.longitude });
       setLastLocationAt(new Date());
     };
