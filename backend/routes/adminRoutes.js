@@ -212,10 +212,10 @@ router.put('/drivers/:id/assignment', async (req, res, next) => {
     if (route.schoolId !== schoolId) return res.status(403).json({ message: 'The route belongs to a different school.' });
     if (driver.schoolId && route.schoolId !== driver.schoolId) return res.status(403).json({ message: 'The driver belongs to a different school.' });
     if (bus.driverId && String(bus.driverId) !== String(driver._id)) {
-      await User.findByIdAndUpdate(bus.driverId, { assignedBusId: null });
+      await User.findOneAndUpdate({ _id: bus.driverId, schoolId }, { assignedBusId: null });
     }
     if (driver.assignedBusId && String(driver.assignedBusId) !== String(bus._id)) {
-      await Bus.findOneAndUpdate({ _id: driver.assignedBusId, driverId: driver._id }, { $set: { driverId: null } });
+      await Bus.findOneAndUpdate({ _id: driver.assignedBusId, driverId: driver._id, schoolId }, { $set: { driverId: null } });
     }
     driver.assignedBusId = bus._id;
     driver.schoolId = route.schoolId;
