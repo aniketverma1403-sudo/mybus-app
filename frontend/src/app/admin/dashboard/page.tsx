@@ -33,7 +33,7 @@ export default function AdminDashboard() {
   const [driverEmail, setDriverEmail] = useState('');
   const [driverPassword, setDriverPassword] = useState('');
   const [routeName, setRouteName] = useState('');
-  const [schoolId, setSchoolId] = useState('school-demo');
+  const [routeStopsText, setRouteStopsText] = useState('Main Gate, 31.1048, 77.1734');
   const [editingBusId, setEditingBusId] = useState('');
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -121,10 +121,37 @@ export default function AdminDashboard() {
 
   async function createRoute(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(`${API}/api/admin/routes`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ routeName: routeName, schoolId, stops: [] }) });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) return setMessage(data?.message || 'Unable to create route.');
-    setMessage(`Route ${data.routeName} created.`); setRouteName(''); await loadFleet();
+    const lines = routeStopsText.split('\n').map(line => line.trim()).filter(Boolean);
+    const stops = [];
+    for (const [index, line] of lines.entries()) {
+      const parts = line.split(',').map(part => part.trim());
+      if (parts.length !== 3 || !parts[0]) {
+        setMessage(`Stop line ${index + 1} must be: Stop name, latitude, longitude.`);
+        return;
+      }
+      const latitude = Number(parts[1]);
+      const longitude = Number(parts[2]);
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+        setMessage(`Stop line ${index + 1} has invalid coordinates.`);
+        return;
+      }
+      stops.push({ stopName: parts[0], latitude, longitude, orderIndex: index });
+    }
+    if (stops.length === 0) return setMessage('Add at least one route stop with coordinates.');
+    try {
+      const response = await fetch(`${API}/api/admin/routes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ routeName: routeName.trim(), stops })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) return setMessage(data?.message || 'Unable to create route.');
+      setMessage(`Route ${data.routeName} created with ${stops.length} stop(s).`);
+      setRouteName('');
+      await loadFleet();
+    } catch (_error) {
+      setMessage('Cannot reach the backend. Check the server and try again.');
+    }
   }
 
   async function assignDriver(driverId: string, busId: string, routeId: string) {
@@ -194,7 +221,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between gap-4"><div><h2 className="text-2xl font-black">Fleet, drivers & routes</h2><p className="mt-1 text-sm text-slate-500">View buses and bind each driver to a bus and route.</p></div><button onClick={() => loadFleet()} className="rounded-xl border px-4 py-2 font-bold">Refresh</button></div>
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <form onSubmit={createDriver} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create driver account</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Driver name" value={driverName} onChange={e => setDriverName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Driver email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={driverPassword} onChange={e => setDriverPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create driver</button></div></form>
-          <form onSubmit={createRoute} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><input required className={inputClass} placeholder="School ID" value={schoolId} onChange={e => setSchoolId(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route</button></div></form>
+          <form onSubmit={createRoute} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route with stops</h3><p className="mt-1 text-sm text-slate-600">Add one stop per line in this format: name, latitude, longitude. Stops stay in the order entered.</p><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><textarea required rows={4} className={inputClass} placeholder={'School Gate, 31.1048, 77.1734\nMarket, 31.1080, 77.1800'} value={routeStopsText} onChange={e => setRouteStopsText(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route and stops</button></div></form>
         </div>
         <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
           <h3 className="font-black">Assign bus to parent</h3>
