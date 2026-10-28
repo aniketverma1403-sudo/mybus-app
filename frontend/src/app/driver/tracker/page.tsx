@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { socket } from '@/utils/socket';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-type Assignment = { bus?: { _id: string; busNumber: string }; route?: { _id: string; routeName: string; stops?: unknown[] } };
+type Assignment = { bus?: { _id: string; busNumber: string }; route?: { _id: string; routeName: string; stops?: unknown[] }; activeTrip?: { _id: string } | null };
 
 export default function DriverTracker() {
   const [token, setToken] = useState('');
@@ -22,7 +22,17 @@ export default function DriverTracker() {
     const data = await response.json();
     if (!response.ok) { setStatus(data.message || 'Your account has no assigned bus yet.'); return; }
     setAssignment(data);
-    setStatus(`Ready for ${data.route?.routeName || 'your route'}.`);
+    if (data.activeTrip?._id) {
+      setTripId(data.activeTrip._id);
+      setActive(true);
+      setGpsReady(false);
+      setStatus('An active trip was recovered. Resume GPS sharing when you are ready.');
+    } else {
+      setTripId('');
+      setActive(false);
+      setGpsReady(false);
+      setStatus(`Ready for ${data.route?.routeName || 'your route'}.`);
+    }
   }
 
   useEffect(() => {
@@ -49,6 +59,28 @@ export default function DriverTracker() {
     setStatus('Signed out.');
   }
 
+  function beginLocationSharing(activeTripId: string, busId: string) {
+    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
+    socket.auth = { token };
+    socket.connect();
+    socket.emit('join-bus-room', busId);
+    watchId.current = navigator.geolocation.watchPosition((position) => {
+      socket.emit('update-location', { tripId: activeTripId, busId, latitude: position.coords.latitude, longitude: position.coords.longitude });
+      setGpsReady(true);
+      setStatus('Trip active — sharing live location.');
+    }, () => {
+      setGpsReady(false);
+      setStatus('Location permission is required while driving. Check browser permissions and resume GPS.');
+    }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+    setGpsReady(true);
+    setStatus('Trip active — starting GPS sharing.');
+  }
+
+  function resumeGps() {
+    if (!tripId || !assignment.bus?._id) return setStatus('No recoverable active trip was found. Refresh your assignment.');
+    beginLocationSharing(tripId, assignment.bus._id);
+  }
+
   async function startTrip() {
     let currentAssignment = assignment;
     const refresh = await fetch(`${API}/api/trips/assignment`, { headers: { Authorization: `Bearer ${token}` } });
@@ -62,11 +94,9 @@ export default function DriverTracker() {
     const response = await fetch(`${API}/api/trips/start`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ busId: currentAssignment.bus._id, routeId: currentAssignment.route._id }) });
     const data = await response.json();
     if (!response.ok) return setStatus(data.message || 'Unable to start trip');
-    setTripId(data._id); setActive(true); setGpsReady(true); socket.auth = { token }; socket.connect(); socket.emit('join-bus-room', currentAssignment.bus._id);
-    watchId.current = navigator.geolocation.watchPosition((position) => {
-      socket.emit('update-location', { tripId: data._id, busId: currentAssignment.bus?._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
-    }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
-    setStatus('Trip active — sharing live location.');
+    setTripId(data._id);
+    setActive(true);
+    beginLocationSharing(data._id, currentAssignment.bus._id);
   }
 
   async function endTrip() {
@@ -90,7 +120,7 @@ export default function DriverTracker() {
         <h2 className="text-xl font-black">Sign in</h2><input required type="email" className="w-full rounded-xl border border-slate-300 p-4 text-slate-950 placeholder:text-slate-400" placeholder="Driver email" value={email} onChange={(e) => setEmail(e.target.value)} /><input required type="password" className="w-full rounded-xl border border-slate-300 p-4 text-slate-950 placeholder:text-slate-400" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} /><button className="h-14 w-full rounded-xl bg-[#d7ff62] font-black text-slate-950">SIGN IN</button>
       </form> : <>
         <section className="mt-8 rounded-3xl bg-[#202a24] p-5"><div className="flex justify-between text-sm"><span className="text-white/60">Today's assignment</span><span className={gpsReady ? 'text-[#d7ff62]' : 'text-red-300'}>{gpsReady ? 'GPS ACTIVE' : 'GPS READY'}</span></div><p className="mt-5 text-sm text-white/60">Bus</p><p className="text-3xl font-black">{assignment.bus?.busNumber || 'Not assigned'}</p><p className="mt-5 text-sm text-white/60">Route</p><p className="text-xl font-bold">{assignment.route?.routeName || 'Contact administrator'}</p></section>
-        {!active ? <button onClick={startTrip} className="mt-5 h-24 w-full rounded-3xl bg-[#d7ff62] text-2xl font-black text-[#111713]">START TRIP</button> : <button onClick={endTrip} className="mt-5 h-24 w-full rounded-3xl bg-[#ff7051] text-2xl font-black text-white">END TRIP</button>}
+        {!active ? <button onClick={startTrip} className="mt-5 h-24 w-full rounded-3xl bg-[#d7ff62] text-2xl font-black text-[#111713]">START TRIP</button> : <div className="mt-5 grid gap-3 sm:grid-cols-2">{!gpsReady && <button onClick={resumeGps} className="h-20 rounded-3xl bg-[#d7ff62] text-xl font-black text-[#111713]">RESUME GPS</button>}<button onClick={endTrip} className="h-20 rounded-3xl bg-[#ff7051] text-xl font-black text-white">END TRIP</button></div>}
         <div className="mt-5 grid grid-cols-2 gap-3"><button className="rounded-2xl bg-[#202a24] p-5 font-bold">Report delay</button><button className="rounded-2xl bg-red-500 p-5 font-bold">SOS emergency</button></div>
       </>}
       <p className="mt-5 rounded-xl bg-white/10 p-4 text-center text-sm text-white/80">{status}</p>
