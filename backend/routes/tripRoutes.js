@@ -66,7 +66,8 @@ router.get('/assignment', auth('driver'), async (req, res, next) => {
     if (driver?.schoolId && String(driver.schoolId) !== String(bus.routeId.schoolId)) {
       return res.status(403).json({ message: 'Your bus route belongs to a different school.' });
     }
-    res.json({ bus, route: bus.routeId });
+    const activeTrip = await TripSession.findOne({ busId: bus._id, driverId: req.user.sub, status: 'active' }).sort({ startedAt: -1 });
+    res.json({ bus, route: bus.routeId, activeTrip });
   } catch (error) { next(error); }
 });
 
