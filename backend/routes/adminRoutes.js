@@ -249,6 +249,48 @@ router.post('/parents', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/students', async (req, res, next) => {
+  try {
+    const { name, email, password, className, section, guardianId, busId } = req.body || {};
+    const schoolId = adminSchool(req);
+    if (!schoolId) return res.status(403).json({ message: 'This administrator is not linked to a school.' });
+    if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !email.trim() ||
+        typeof password !== 'string' || password.length < 8 || typeof className !== 'string' || !className.trim() ||
+        !validId(guardianId) || !validId(busId)) {
+      return res.status(400).json({ message: 'Name, email, password (8+ characters), class, parent, and bus are required.' });
+    }
+    const [guardian, bus] = await Promise.all([
+      User.findOne({ _id: guardianId, role: 'parent', schoolId }),
+      Bus.findOne({ _id: busId, schoolId }).populate('routeId')
+    ]);
+    if (!guardian) return res.status(404).json({ message: 'Parent/guardian account not found in this school.' });
+    if (!bus || !bus.routeId) return res.status(409).json({ message: 'Select a bus with a route assigned.' });
+    const student = await User.create({
+      name: name.trim().slice(0, 100),
+      email: email.trim().toLowerCase(),
+      password,
+      role: 'student',
+      schoolId,
+      className: className.trim().slice(0, 50),
+      section: typeof section === 'string' ? section.trim().slice(0, 20) : '',
+      guardianUserId: guardian._id,
+      assignedBusId: bus._id
+    });
+    res.status(201).json({ id: student._id, name: student.name, email: student.email, className: student.className, section: student.section });
+  } catch (error) { next(error); }
+});
+
+router.get('/students', async (req, res, next) => {
+  try {
+    const schoolId = adminSchool(req);
+    if (!schoolId) return res.status(403).json({ message: 'This administrator is not linked to a school.' });
+    res.json(await User.find({ role: 'student', schoolId })
+      .select('name email className section guardianUserId assignedBusId')
+      .populate('guardianUserId', 'name email')
+      .populate('assignedBusId', 'busNumber'));
+  } catch (error) { next(error); }
+});
+
 router.get('/parents', async (req, res, next) => {
   try {
     const schoolId = adminSchool(req);
