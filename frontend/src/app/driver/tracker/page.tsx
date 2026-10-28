@@ -113,6 +113,35 @@ export default function DriverTracker() {
     } catch (_error) { setStatus('Network error while ending trip. GPS sharing has stopped on this device.'); }
   }
 
+  async function reportIncident(type: 'delay' | 'sos' | 'breakdown') {
+    if (!token || !tripId || !active) {
+      setStatus('Start or resume an active trip before sending a report.');
+      return;
+    }
+    const defaultMessage = type === 'sos' ? 'Emergency assistance required' : type === 'delay' ? 'Bus is delayed' : 'Bus breakdown';
+    const message = window.prompt(type === 'sos' ? 'Describe the emergency briefly:' : 'Add a short report:', defaultMessage);
+    if (message === null) return;
+    if (!message.trim()) {
+      setStatus('Please enter a short description before sending the report.');
+      return;
+    }
+    try {
+      const response = await fetch(`${API}/api/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tripId, type, message: message.trim() })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || 'Unable to send the report. Try again or contact the school directly.');
+        return;
+      }
+      setStatus(data.message || 'Report sent to the school administrator.');
+    } catch (_error) {
+      setStatus('Network error: the report was not confirmed. Contact the school directly if this is an emergency.');
+    }
+  }
+
   return <main className="min-h-screen bg-[#111713] px-4 py-6 text-white">
     <div className="mx-auto max-w-md">
       <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.25em] text-[#d7ff62]">School bus tracker</p><h1 className="mt-2 text-3xl font-black">Driver route</h1></div><div className="flex items-center gap-3">{token && <button onClick={signOut} className="text-sm font-semibold text-white/70 underline">Sign out</button>}<span className={`h-3 w-3 rounded-full ${gpsReady ? 'bg-[#d7ff62]' : 'bg-red-400'}`} /></div></div>
@@ -121,7 +150,7 @@ export default function DriverTracker() {
       </form> : <>
         <section className="mt-8 rounded-3xl bg-[#202a24] p-5"><div className="flex justify-between text-sm"><span className="text-white/60">Today's assignment</span><span className={gpsReady ? 'text-[#d7ff62]' : 'text-red-300'}>{gpsReady ? 'GPS ACTIVE' : 'GPS READY'}</span></div><p className="mt-5 text-sm text-white/60">Bus</p><p className="text-3xl font-black">{assignment.bus?.busNumber || 'Not assigned'}</p><p className="mt-5 text-sm text-white/60">Route</p><p className="text-xl font-bold">{assignment.route?.routeName || 'Contact administrator'}</p></section>
         {!active ? <button onClick={startTrip} className="mt-5 h-24 w-full rounded-3xl bg-[#d7ff62] text-2xl font-black text-[#111713]">START TRIP</button> : <div className="mt-5 grid gap-3 sm:grid-cols-2">{!gpsReady && <button onClick={resumeGps} className="h-20 rounded-3xl bg-[#d7ff62] text-xl font-black text-[#111713]">RESUME GPS</button>}<button onClick={endTrip} className="h-20 rounded-3xl bg-[#ff7051] text-xl font-black text-white">END TRIP</button></div>}
-        <div className="mt-5 grid grid-cols-2 gap-3"><button className="rounded-2xl bg-[#202a24] p-5 font-bold">Report delay</button><button className="rounded-2xl bg-red-500 p-5 font-bold">SOS emergency</button></div>
+        <div className="mt-5 grid grid-cols-2 gap-3"><button onClick={() => reportIncident('delay')} className="rounded-2xl bg-[#202a24] p-5 font-bold">Report delay</button><button onClick={() => reportIncident('sos')} className="rounded-2xl bg-red-500 p-5 font-bold">SOS emergency</button></div>
       </>}
       <p className="mt-5 rounded-xl bg-white/10 p-4 text-center text-sm text-white/80">{status}</p>
     </div>
