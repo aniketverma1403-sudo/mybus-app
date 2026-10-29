@@ -30,7 +30,8 @@ export default function DriverTracker() {
       setStatus('Trip resumed — live location sharing restored.');
       socket.auth = { token: savedToken };
       socket.connect();
-      socket.emit('join-bus-room', data.bus._id);
+      const joinBusRoom = () => socket.emit('join-bus-room', data.bus._id);
+      if (socket.connected) joinBusRoom(); else socket.once('connect', joinBusRoom);
       if (watchId.current === null) {
         watchId.current = navigator.geolocation.watchPosition((position) => {
           socket.emit('update-location', { tripId: data.trip._id, busId: data.bus._id, latitude: position.coords.latitude, longitude: position.coords.longitude });

@@ -72,6 +72,17 @@ export default function ParentMap() {
   }, [loadAssignment]);
 
   useEffect(() => {
+    if (!token) return;
+    const refreshTrip = () => void loadAssignment(token);
+    const timer = window.setInterval(refreshTrip, 5000);
+    window.addEventListener('focus', refreshTrip);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshTrip);
+    };
+  }, [token, loadAssignment]);
+
+  useEffect(() => {
     if (!token || !assignment?.bus?._id || !assignment.trip) {
       socket.disconnect();
       return;
