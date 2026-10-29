@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
+import { API_BASE_URL } from '@/utils/api';
 
-export const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001', {
+export const socket = io(API_BASE_URL || undefined, {
   autoConnect: false,
 });
