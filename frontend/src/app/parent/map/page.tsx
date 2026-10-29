@@ -1,26 +1,22 @@
 'use client';
 
-import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { socket } from '@/utils/socket';
 
+const LiveMap = dynamic(() => import('./LiveMap'), { ssr: false });
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 type Position = { lat: number; lng: number };
 type Stop = { stopName: string; latitude: number; longitude: number; orderIndex: number };
-type Bus = { _id: string; busNumber: string; routeId?: { routeName?: string; stops?: Stop[] } };
+type Driver = { name: string; phone?: string; email?: string };
+type Bus = { _id: string; busNumber: string; driverId?: Driver | null; routeId?: { routeName?: string; stops?: Stop[] } };
 type Assignment = { bus: Bus; route?: { routeName?: string; stops?: Stop[] }; trip?: { _id: string; currentLocation?: { latitude: number; longitude: number }; updatedAt?: string; startedAt?: string } | null };
 type Child = { _id: string; name: string; className: string; section?: string; admissionNumber?: string; pickupStop?: string; dropStop?: string; busId?: Bus | string | null; routeId?: { routeName?: string; stops?: Stop[] } | string | null };
 
-function AnimatedMarker({ position }: { position: Position }) {
-  const map = useMap();
-  useEffect(() => { map?.panTo(position); }, [map, position]);
-  return <AdvancedMarker position={position} title="Assigned school bus" />;
-}
-
 export default function ParentMap() {
   const [token, setToken] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('parent@school.com');
+  const [password, setPassword] = useState('Demo@1234');
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
   const [connected, setConnected] = useState(false);
@@ -28,8 +24,6 @@ export default function ParentMap() {
   const [loading, setLoading] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [lastLocationAt, setLastLocationAt] = useState<Date | null>(null);
-  const assignedBusIdRef = useRef<string | null>(null);
-  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const loadAssignment = useCallback(async (savedToken: string) => {
     const response = await fetch(`${API}/api/trips/parent-assignment`, { headers: { Authorization: `Bearer ${savedToken}` } });
@@ -84,8 +78,13 @@ export default function ParentMap() {
     }
     socket.auth = { token };
     socket.connect();
-    socket.emit('join-bus-room', assignment.bus._id);
-    return () => { socket.emit('leave-bus-room', assignment.bus._id); socket.disconnect(); };
+    const joinBusRoom = () => socket.emit('join-bus-room', assignment.bus._id);
+    if (socket.connected) joinBusRoom(); else socket.once('connect', joinBusRoom);
+    return () => {
+      socket.emit('leave-bus-room', assignment.bus._id);
+      socket.off('connect', joinBusRoom);
+      socket.disconnect();
+    };
   }, [token, assignment?.bus?._id, assignment?.trip?._id]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -157,18 +156,24 @@ export default function ParentMap() {
             <p className="text-sm text-slate-500">Your assigned bus</p>
             <p className="mt-1 text-2xl font-black text-slate-900">{assignment?.bus?.busNumber || 'Loading assignment…'}</p>
             <p className="mt-1 text-sm text-slate-600">{assignment?.route?.routeName || assignment?.bus?.routeId?.routeName || 'Route not assigned'}</p>
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Assigned driver</p>
+              <p className="mt-1 font-bold text-slate-900">{assignment?.bus?.driverId?.name || 'Not assigned'}</p>
+              {assignment?.bus?.driverId?.phone && <a className="mt-1 block text-sm font-semibold text-blue-700" href={`tel:${assignment.bus.driverId.phone}`}>{assignment.bus.driverId.phone}</a>}
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-slate-50 p-4"><small className="text-slate-500">Distance to first stop</small><p className="text-2xl font-bold text-slate-900">{distanceKm === null ? '—' : `${distanceKm} km`}</p></div>
             <div className="rounded-2xl bg-slate-50 p-4"><small className="text-slate-500">Estimated time</small><p className="text-2xl font-bold text-slate-900">{etaMinutes === null ? '—' : `${etaMinutes} min`}</p></div>
           </div>
           <div className="mt-4 flex items-center justify-between gap-2 text-sm text-slate-600"><p>{connected ? '🟢 Live connection established' : '⚪ Waiting for live updates'}</p><button onClick={() => void loadAssignment(token)} className="font-semibold text-blue-700 underline">Refresh</button></div>
-          {locationIsStale && assignment?.trip && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">Location has not updated recently. The bus position may be out of date.</p>}
+          {assignment?.trip && !lastLocationAt && <p className="mt-3 rounded-xl bg-blue-50 p-3 text-sm font-semibold text-blue-800">Trip is active. Waiting for the driver's first GPS update.</p>}
+          {locationIsStale && assignment?.trip && lastLocationAt && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">The bus location has not updated recently and may be out of date.</p>}
         </>}
         <p role="status" className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900">{status}</p>
       </section>
       <section className="relative min-h-[520px] overflow-hidden rounded-3xl bg-slate-200 shadow-sm">
-        {key ? <APIProvider apiKey={key}><Map defaultCenter={position || { lat: 22.9734, lng: 78.6569 }} defaultZoom={position ? 14 : 5} mapId="school-bus-tracker" gestureHandling="greedy">{position && <AnimatedMarker position={position} />}</Map></APIProvider> : <div className="flex h-full min-h-[520px] items-center justify-center p-8 text-center font-medium text-slate-600">Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to frontend/.env.local to enable the map.</div>}
+        <LiveMap position={position} />
       </section>
     </div>
   </main>;

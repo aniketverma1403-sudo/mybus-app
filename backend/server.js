@@ -100,8 +100,12 @@ async function ensureDemoData() {
   else await User.updateOne({ _id: admin._id }, { $set: { schoolId } });
 
   let driver = await User.findOne({ email: 'ramesh@school.com' });
-  if (!driver) driver = await User.create({ name: 'Ramesh', email: 'ramesh@school.com', password: defaultPassword, role: 'driver', schoolId });
-  else await User.updateOne({ _id: driver._id }, { $set: { schoolId } });
+  if (!driver) driver = await User.create({ name: 'Ramesh Kumar', email: 'ramesh@school.com', phone: '+91 98765 43210', password: defaultPassword, role: 'driver', schoolId });
+  else await User.updateOne({ _id: driver._id }, { $set: { name: 'Ramesh Kumar', phone: '+91 98765 43210', schoolId } });
+
+  let parent = await User.findOne({ email: 'parent@school.com' });
+  if (!parent) parent = await User.create({ name: 'Demo Parent', email: 'parent@school.com', password: defaultPassword, role: 'parent', schoolId });
+  else await User.updateOne({ _id: parent._id }, { $set: { schoolId } });
 
   let route = await Route.findOne({ routeName: 'Route A', schoolId });
   if (!route) route = await Route.create({ routeName: 'Route A', schoolId, stops: [] });
@@ -111,14 +115,16 @@ async function ensureDemoData() {
     { busNumber: '102', licensePlate: 'HP545678', capacity: 35, studentCount: 0 },
     { busNumber: '103', licensePlate: 'HP549999', capacity: 50, studentCount: 0 }
   ];
+  let bus101;
   for (const spec of busSpecs) {
-    await Bus.findOneAndUpdate({ busNumber: spec.busNumber }, spec, { upsert: true, new: true, setDefaultsOnInsert: true });
+    const bus = await Bus.findOneAndUpdate({ busNumber: spec.busNumber }, spec, { upsert: true, new: true, setDefaultsOnInsert: true });
+    if (spec.busNumber === '101') bus101 = bus;
   }
-  let bus101 = await Bus.findOne({ busNumber: '101' });
-  if (bus101) await Bus.updateOne({ _id: bus101._id }, { $set: { driverId: driver._id, routeId: route._id } });
-  await User.updateOne({ _id: driver._id }, { $set: { assignedBusId: bus101._id } });
 
-  await User.updateMany({ role: 'parent', schoolId: null }, { $set: { schoolId } });
+  await Bus.updateOne({ _id: bus101._id }, { $set: { driverId: driver._id, routeId: route._id } });
+  await User.updateOne({ _id: driver._id }, { $set: { assignedBusId: bus101._id, schoolId } });
+  await User.updateOne({ _id: parent._id }, { $set: { assignedBusId: bus101._id, schoolId } });
+  await User.updateMany({ role: 'parent', schoolId: null }, { $set: { schoolId, assignedBusId: bus101._id } });
   await User.updateMany({ role: 'parent', assignedBusId: null }, { $set: { assignedBusId: bus101._id } });
 }
 if (require.main === module) start().catch((error) => { console.error(error); process.exit(1); });

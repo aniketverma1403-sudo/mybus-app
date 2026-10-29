@@ -78,7 +78,7 @@ router.get('/parent-assignment', auth('parent'), async (req, res, next) => {
   try {
     const user = await User.findById(req.user.sub).select('schoolId assignedBusId').populate({
       path: 'assignedBusId',
-      populate: { path: 'routeId' }
+      populate: { path: 'routeId driverId', select: 'routeName stops schoolId name phone email' }
     });
     if (!user) return res.status(404).json({ message: 'Parent account not found.' });
     if (!user.assignedBusId) return res.status(404).json({ message: 'No bus is assigned to your account yet. Please contact your school.' });

@@ -8,8 +8,8 @@ type Assignment = { bus?: { _id: string; busNumber: string }; route?: { _id: str
 
 export default function DriverTracker() {
   const [token, setToken] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('ramesh@school.com');
+  const [password, setPassword] = useState('Demo@1234');
   const [assignment, setAssignment] = useState<Assignment>({});
   const [tripId, setTripId] = useState('');
   const [active, setActive] = useState(false);

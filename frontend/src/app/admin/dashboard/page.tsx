@@ -5,14 +5,14 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 type Overview = { buses: number; routes: number; activeTrips: number };
 type Bus = { _id: string; busNumber: string; licensePlate: string; capacity: number; studentCount: number; driverId?: string | { _id: string; name: string }; routeId?: string | { _id: string; routeName: string } };
 type Route = { _id: string; routeName: string; schoolId: string; stops?: unknown[] };
-type Driver = { _id: string; name: string; email: string; assignedBusId?: string };
+type Driver = { _id: string; name: string; email: string; assignedBusId?: string; phone?: string };
 type Parent = { _id: string; name: string; email: string; assignedBusId?: string };
 type Student = { _id: string; name: string; admissionNumber: string; className: string; section: string; guardianIds?: Parent[]; busId?: Bus | string | null; routeId?: Route | string | null; pickupStop?: string; dropStop?: string };
 
 export default function AdminDashboard() {
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('admin@school.com');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('Demo@1234');
   const [overview, setOverview] = useState<Overview>({ buses: 0, routes: 0, activeTrips: 0 });
   const [busNumber, setBusNumber] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   const [driverName, setDriverName] = useState('');
   const [driverEmail, setDriverEmail] = useState('');
   const [driverPassword, setDriverPassword] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
   const [routeName, setRouteName] = useState('');
   const [schoolId, setSchoolId] = useState('school-demo');
   const [editingBusId, setEditingBusId] = useState('');
@@ -128,10 +129,10 @@ export default function AdminDashboard() {
 
   async function createDriver(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(`${API}/api/admin/drivers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: driverName, email: driverEmail, password: driverPassword }) });
+    const response = await fetch(`${API}/api/admin/drivers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name: driverName, email: driverEmail, password: driverPassword, phone: driverPhone }) });
     const data = await response.json().catch(() => null);
     if (!response.ok) return setMessage(data?.message || 'Unable to create driver.');
-    setMessage(`Driver ${data.name} created.`); setDriverName(''); setDriverEmail(''); setDriverPassword(''); await loadFleet();
+    setMessage(`Driver ${data.name} created.`); setDriverName(''); setDriverEmail(''); setDriverPassword(''); setDriverPhone(''); await loadFleet();
   }
 
   async function createRoute(event: FormEvent<HTMLFormElement>) {
@@ -236,7 +237,7 @@ export default function AdminDashboard() {
       <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-4"><div><h2 className="text-2xl font-black">Fleet, drivers & routes</h2><p className="mt-1 text-sm text-slate-500">View buses and bind each driver to a bus and route.</p></div><button onClick={() => loadFleet()} className="rounded-xl border px-4 py-2 font-bold">Refresh</button></div>
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
-          <form onSubmit={createDriver} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create driver account</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Driver name" value={driverName} onChange={e => setDriverName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Driver email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={driverPassword} onChange={e => setDriverPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create driver</button></div></form>
+          <form onSubmit={createDriver} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create driver account</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Driver name" value={driverName} onChange={e => setDriverName(e.target.value)} /><input required type="email" className={inputClass} placeholder="Driver email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} /><input required className={inputClass} placeholder="Driver phone number" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} /><input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={driverPassword} onChange={e => setDriverPassword(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create driver</button></div></form>
           <form onSubmit={createRoute} className="rounded-2xl bg-slate-50 p-4"><h3 className="font-black">Create route</h3><div className="mt-3 grid gap-3"><input required className={inputClass} placeholder="Route name, e.g. Route A" value={routeName} onChange={e => setRouteName(e.target.value)} /><input required className={inputClass} placeholder="School ID" value={schoolId} onChange={e => setSchoolId(e.target.value)} /><button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create route</button></div></form>
         </div>
         <div className="mt-6 grid gap-3 md:grid-cols-3">
@@ -258,6 +259,21 @@ export default function AdminDashboard() {
           {buses.length === 0 && <p className="p-5 text-center text-slate-500">No buses have been registered yet.</p>}
         </div>
       </section>
+      <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+        <h3 className="font-black text-blue-950">Assign parent to bus</h3>
+        <p className="mt-1 text-sm text-blue-800">The selected bus automatically determines the parent's route and assigned driver.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <select className={inputClass} value={parentId} onChange={e => setParentId(e.target.value)}>
+            <option value="">Select parent</option>
+            {parents.map(parent => <option key={parent._id} value={parent._id}>{parent.name} — {parent.email}</option>)}
+          </select>
+          <select className={inputClass} value={parentBusId} onChange={e => setParentBusId(e.target.value)}>
+            <option value="">Select bus</option>
+            {buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {typeof bus.routeId === 'object' ? bus.routeId?.routeName : 'Route not assigned'}</option>)}
+          </select>
+        </div>
+        <button type="button" onClick={assignParent} className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white">Assign parent</button>
+      </div>
     </div>
   </main>;
 }
