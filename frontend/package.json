@@ -19,6 +19,7 @@
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.16.5",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
