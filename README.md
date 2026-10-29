@@ -65,3 +65,18 @@ A deployed Netlify frontend cannot reach `localhost:5001` on your Mac. The API m
 ## Current limitations
 
 This is a development prototype, not yet a production-ready school transport system. Before deployment, implement and test full school-level tenant isolation across every database query, parent/student identity verification, route-stop management, trip scheduling, traffic-aware ETA, notifications, rate limiting, audit logs, and production monitoring. The displayed ETA is a rough distance-based estimate, not a navigation/traffic ETA. Test with non-sensitive demo accounts and a persistent staging database before using real student data.
+
+
+## 3. Deploy a public interview demo
+
+Netlify hosts only the Next.js frontend. The Express API and MongoDB must also be hosted; \`localhost\` URLs work only on your own computer.
+
+1. Create a MongoDB Atlas database and copy its Node.js connection string. Keep it private.
+2. In Render, create a Web Service from this repository with **Root Directory** \`backend\`, **Build Command** \`npm install\`, and **Start Command** \`npm start\`. Alternatively, use the repository's \`render.yaml\` blueprint.
+3. Set Render environment variables: \`NODE_ENV=production\`, \`USE_MEMORY_DB=false\`, \`MONGODB_URI\` (Atlas connection string), \`JWT_SECRET\` (long random secret), \`CLIENT_URL=https://mybus99.netlify.app\`, and \`SCHOOL_ID=school-demo\`. Do not commit secrets.
+4. Wait for the Render service to start, then open \`https://YOUR-API.onrender.com/api/health\`. It must return \`{"status":"ok"}\`.
+5. Create the production administrator in the Render Shell using \`npm run create-admin\` with \`ADMIN_NAME\`, \`ADMIN_EMAIL\`, \`ADMIN_PASSWORD\` (at least 12 characters), and \`SCHOOL_ID=school-demo\` environment variables. Do not use development demo credentials in production.
+6. In Netlify → **Site configuration → Environment variables**, set \`NEXT_PUBLIC_API_URL=https://YOUR-API.onrender.com\` (the actual Render URL, no trailing slash and no \`/api\` suffix). Trigger a new production deploy; Next.js reads this value at build time.
+7. Test admin sign-in, create/assign a bus and driver, then sign in as a parent and allow location access on the driver's device. Browser geolocation requires HTTPS, which Netlify provides.
+
+The frontend intentionally refuses a localhost API URL in production. If the backend URL is missing or still points to localhost, set the Netlify variable and redeploy. A successful frontend deployment alone does not create the production database or user accounts.

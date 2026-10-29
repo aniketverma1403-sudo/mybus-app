@@ -3,9 +3,10 @@
 import dynamic from 'next/dynamic';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { socket } from '@/utils/socket';
+import { API_BASE_URL as API, API_SETUP_MESSAGE } from '@/utils/api';
 
 const LiveMap = dynamic(() => import('./LiveMap'), { ssr: false });
-const API = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '')).replace(/\/+$/, '');
+
 type Position = { lat: number; lng: number };
 type Stop = { stopName: string; latitude: number; longitude: number; orderIndex: number };
 type Driver = { name: string; phone?: string; email?: string };
@@ -26,6 +27,7 @@ export default function ParentMap() {
   const [lastLocationAt, setLastLocationAt] = useState<Date | null>(null);
 
   const loadAssignment = useCallback(async (savedToken: string) => {
+    if (!API) { setStatus(API_SETUP_MESSAGE); return; }
     const response = await fetch(`${API}/api/trips/parent-assignment`, { headers: { Authorization: `Bearer ${savedToken}` } });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -47,10 +49,10 @@ export default function ParentMap() {
 
   useEffect(() => {
     const saved = localStorage.getItem('parentToken') || '';
-    if (saved) {
+    if (saved && API) {
       setToken(saved);
       void loadAssignment(saved);
-    }
+    } else if (!API) { setStatus(API_SETUP_MESSAGE); }
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
     const onLocation = (location: { busId: string; latitude: number; longitude: number }) => {
@@ -103,7 +105,7 @@ export default function ParentMap() {
     setLoading(true);
     setStatus('Signing in…');
     try {
-      if (!API) { setStatus('Backend URL is not configured. Set NEXT_PUBLIC_API_URL to your deployed backend URL and redeploy the frontend.'); return; }
+      if (!API) { setStatus(API_SETUP_MESSAGE); return; }
       if (registering) {
         const registration = await fetch(`${API}/api/auth/register`, {
           method: 'POST',

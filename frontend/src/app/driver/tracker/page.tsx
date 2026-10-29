@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { socket } from '@/utils/socket';
+import { API_BASE_URL as API, API_SETUP_MESSAGE } from '@/utils/api';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
 type Assignment = { bus?: { _id: string; busNumber: string }; route?: { _id: string; routeName: string; stops?: unknown[] }; trip?: { _id: string } | null };
 
 export default function DriverTracker() {
@@ -19,6 +20,7 @@ export default function DriverTracker() {
   const [now, setNow] = useState<Date | null>(null);
 
   async function loadAssignment(savedToken: string) {
+    if (!API) { setStatus(API_SETUP_MESSAGE); return; }
     const response = await fetch(`${API}/api/trips/assignment`, { headers: { Authorization: `Bearer ${savedToken}` } });
     const data = await response.json();
     if (!response.ok) { setStatus(data.message || 'Your account has no assigned bus yet.'); return; }
@@ -46,16 +48,21 @@ export default function DriverTracker() {
   useEffect(() => {
     const savedToken = localStorage.getItem('driverToken') || '';
     setToken(savedToken);
-    if (savedToken) loadAssignment(savedToken);
+    if (savedToken && API) loadAssignment(savedToken);
+    else if (!API) setStatus(API_SETUP_MESSAGE);
     return () => { if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current); socket.disconnect(); };
   }, []);
 
   async function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setStatus('Signing in…');
+    event.preventDefault();
+    if (!API) { setStatus(API_SETUP_MESSAGE); return; }
+    setStatus('Signing in…');
+    try {
     const response = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const data = await response.json();
     if (!response.ok || data.user?.role !== 'driver') { setStatus(data.message || 'This account is not a driver account.'); return; }
     localStorage.setItem('driverToken', data.token); setToken(data.token); setPassword(''); await loadAssignment(data.token);
+    } catch (_error) { setStatus(`Cannot connect to the bus-tracker API at ${API}. Verify the deployed backend URL and CORS configuration.`); }
   }
 
   function signOut() {
