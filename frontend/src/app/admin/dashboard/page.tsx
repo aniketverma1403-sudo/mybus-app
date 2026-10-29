@@ -1,7 +1,7 @@
 'use client';
 import { FormEvent, useEffect, useState } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const API = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '')).replace(/\/+$/, '');
 type Overview = { buses: number; routes: number; activeTrips: number };
 type Bus = { _id: string; busNumber: string; licensePlate: string; capacity: number; studentCount: number; driverId?: string | { _id: string; name: string }; routeId?: string | { _id: string; routeName: string } };
 type Route = { _id: string; routeName: string; schoolId: string; stops?: unknown[] };
@@ -11,8 +11,8 @@ type Student = { _id: string; name: string; admissionNumber: string; className: 
 
 export default function AdminDashboard() {
   const [token, setToken] = useState('');
-  const [email, setEmail] = useState('admin@school.com');
-  const [password, setPassword] = useState('Demo@1234');
+  const [email, setEmail] = useState(process.env.NODE_ENV === 'development' ? 'admin@school.com' : '');
+  const [password, setPassword] = useState(process.env.NODE_ENV === 'development' ? 'Demo@1234' : '');
   const [overview, setOverview] = useState<Overview>({ buses: 0, routes: 0, activeTrips: 0 });
   const [busNumber, setBusNumber] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
@@ -58,7 +58,11 @@ export default function AdminDashboard() {
     setMessage('');
     setLoading(true);
     try {
-      const response = await fetch(`${API.replace(/\/$/, '')}/api/auth/login`, {
+      if (!API) {
+        setMessage('Backend URL is not configured. Set NEXT_PUBLIC_API_URL to your deployed backend URL in Netlify, then redeploy the frontend.');
+        return;
+      }
+      const response = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password })
@@ -77,7 +81,7 @@ export default function AdminDashboard() {
       await load(data.token);
       await loadFleet(data.token);
     } catch (_error) {
-      setMessage(`Cannot connect to the bus-tracker API at ${API}. Start the backend on port 5001, or set NEXT_PUBLIC_API_URL to your deployed backend URL in frontend/.env.local, then restart Next.js.`);
+      setMessage(API ? `Cannot connect to the bus-tracker API at ${API}. Check that the backend is running and its CLIENT_URL allows this frontend origin.` : 'Backend URL is not configured. Set NEXT_PUBLIC_API_URL to your deployed backend URL and redeploy the frontend.');
     } finally {
       setLoading(false);
     }
