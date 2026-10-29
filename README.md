@@ -18,23 +18,22 @@ npm install
 
 Set these values in `backend/.env`:
 
-- `MONGODB_URI`: your database connection string
-- `JWT_SECRET`: a long, random secret (do not commit it)
+- `MONGODB_URI`: your database connection string (required when `USE_MEMORY_DB=false`)
+- `JWT_SECRET`: a long, random secret (never commit it)
 - `CLIENT_URL=http://localhost:3000`
-- `USE_MEMORY_DB=false` when using a persistent database
+- `USE_MEMORY_DB=true` for a quick local demo, or `false` for persistent MongoDB
+- `PORT=5001` (choose another free port if 5001 is already occupied)
+- `SCHOOL_ID=school-demo`
 
-Create the first administrator securely. Set `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` (at least 12 characters), and a stable `SCHOOL_ID` in `backend/.env`, then run:
+**Quick local demo:** use `USE_MEMORY_DB=true`, start `npm run dev`, and sign in with `admin@school.com` / `Demo@1234`. This development-only demo database is in memory and all demo data disappears when the backend stops. Never use these credentials in production.
 
-```sh
-npm run create-admin
-npm run dev
-```
+**Persistent database / production:** set `USE_MEMORY_DB=false`, `MONGODB_URI`, `JWT_SECRET`, and a stable `SCHOOL_ID`. Set `ADMIN_NAME`, `ADMIN_EMAIL`, and a unique `ADMIN_PASSWORD` of at least 12 characters, then run `npm run create-admin` against that same database before starting the API. The script can update an existing administrator but refuses to promote a parent or driver account. Production does not auto-create demo accounts. Remove `ADMIN_PASSWORD` from the environment after bootstrap.
 
-The API and Socket.IO server run at `http://localhost:5001`. Remove the temporary `ADMIN_PASSWORD` value after creating the account. Public registration creates parent accounts only; it cannot create administrator or driver accounts. The school ID is assigned by the server for routes and driver accounts; parent registration cannot choose a school ID.
+The API and Socket.IO server run at `http://localhost:5001` by default. If you see `EADDRINUSE`, another process already owns that port: stop the older backend process or set `PORT` to a free port and make the frontend API URL match. Public registration creates parent accounts only; it cannot create administrator or driver accounts.
 
 ## 2. Configure and start the frontend
 
-Create `frontend/.env.local` from `frontend/.env.local.example`, then set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to a restricted Google Maps JavaScript API key.
+Create `frontend/.env.local` from `frontend/.env.local.example`. Set `NEXT_PUBLIC_API_URL=http://localhost:5001` and set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to a restricted Google Maps JavaScript API key. Restart Next.js after changing environment variables.
 
 ```sh
 cd frontend
@@ -42,7 +41,17 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Keep API keys and database/JWT secrets out of Git; only the browser-restricted Maps key belongs in a `NEXT_PUBLIC_` variable.
+Open `http://localhost:3000`. Check `http://localhost:5001/api/health` returns `{"status":"ok"}` before attempting sign-in. Keep database credentials and JWT secrets out of Git; only the browser-restricted Maps key and public API base URL belong in `NEXT_PUBLIC_` variables.
+
+## 4. Deployment (Netlify + Render)
+
+1. Create a persistent MongoDB Atlas database and allow your backend host to connect to it.
+2. Deploy `backend` as a Node service on Render with **Root Directory** `backend`, **Build Command** `npm install`, and **Start Command** `npm start`.
+3. Set Render environment variables: `NODE_ENV=production`, `USE_MEMORY_DB=false`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_URL=https://YOUR-NETLIFY-SITE.netlify.app`, and `SCHOOL_ID`. Add `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` temporarily, then run `npm run create-admin` in the Render shell using those same environment values. Do not set `USE_MEMORY_DB=true` in production.
+4. Set Netlify environment variable `NEXT_PUBLIC_API_URL=https://YOUR-RENDER-SERVICE.onrender.com` and `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` if using the map. Trigger a new frontend deploy after setting these variables.
+5. Open `https://YOUR-RENDER-SERVICE.onrender.com/api/health`; it must return `{"status":"ok"}`. Then use the administrator email and password you created—not the local demo credentials.
+
+A deployed Netlify frontend cannot reach `localhost:5001` on your Mac. The API must be publicly deployed and the frontend must be rebuilt with its URL.
 
 ## 3. Basic workflow
 
