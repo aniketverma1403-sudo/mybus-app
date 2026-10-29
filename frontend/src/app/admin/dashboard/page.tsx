@@ -292,31 +292,20 @@ export default function AdminDashboard() {
           {buses.length === 0 && <p className="p-5 text-center text-slate-500">No buses have been registered yet.</p>}
         </div>
       </section>
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <form onSubmit={createParent} className="rounded-2xl bg-slate-50 p-5">
-          <h3 className="font-black">Create parent account</h3>
-          <div className="mt-4 grid gap-3">
-            <input required className={inputClass} placeholder="Parent name" value={parentName} onChange={e => setParentName(e.target.value)} />
-            <input required type="email" className={inputClass} placeholder="Parent email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} />
-            <input required minLength={8} type="password" className={inputClass} placeholder="Password (8+ characters)" value={parentPassword} onChange={e => setParentPassword(e.target.value)} />
-            <button className="rounded-xl bg-slate-900 px-4 py-3 font-bold text-white">Create parent</button>
-          </div>
-        </form>
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
-          <h3 className="font-black text-blue-950">Assign parent to bus</h3>
-          <p className="mt-1 text-sm text-blue-800">The selected bus supplies the parent's route and driver details.</p>
-          <div className="mt-4 grid gap-3">
-            <select className={inputClass} value={parentId} onChange={e => setParentId(e.target.value)}>
-              <option value="">Select parent</option>
-              {parents.map(parent => <option key={parent._id} value={parent._id}>{parent.name} — {parent.email}</option>)}
-            </select>
-            <select className={inputClass} value={parentBusId} onChange={e => setParentBusId(e.target.value)}>
-              <option value="">Select bus</option>
-              {buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {typeof bus.routeId === 'object' ? bus.routeId?.routeName : 'Route not assigned'}</option>)}
-            </select>
-          </div>
-          <button type="button" onClick={assignParent} className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white">Assign parent</button>
+      <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+        <h3 className="font-black text-blue-950">Assign parent to bus</h3>
+        <p className="mt-1 text-sm text-blue-800">The selected bus automatically determines the parent's route and assigned driver.</p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <select className={inputClass} value={parentId} onChange={e => setParentId(e.target.value)}>
+            <option value="">Select parent</option>
+            {parents.map(parent => <option key={parent._id} value={parent._id}>{parent.name} — {parent.email}</option>)}
+          </select>
+          <select className={inputClass} value={parentBusId} onChange={e => setParentBusId(e.target.value)}>
+            <option value="">Select bus</option>
+            {buses.map(bus => <option key={bus._id} value={bus._id}>{bus.busNumber} — {typeof bus.routeId === 'object' ? bus.routeId?.routeName : 'Route not assigned'}</option>)}
+          </select>
         </div>
+        <button type="button" onClick={assignParent} className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white">Assign parent</button>
       </div>
     </div>
   </main>;
