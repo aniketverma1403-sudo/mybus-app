@@ -55,10 +55,32 @@ export default function AdminDashboard() {
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    const data = await response.json();
-    if (!response.ok || data.user?.role !== 'admin') { setMessage(data.message || 'This account does not have administrator access.'); return; }
-    localStorage.setItem('adminToken', data.token); setToken(data.token); setPassword(''); setMessage(`Welcome, ${data.user.name}. Admin session started.`); await load(data.token); await loadFleet(data.token);
+    setMessage('');
+    setLoading(true);
+    try {
+      const response = await fetch(`${API.replace(/\/$/, '')}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.user?.role !== 'admin') {
+        setMessage(data.message || (response.ok
+          ? 'This account does not have administrator access.'
+          : `Sign-in failed (${response.status}). Check the email and password.`));
+        return;
+      }
+      localStorage.setItem('adminToken', data.token);
+      setToken(data.token);
+      setPassword('');
+      setMessage(`Welcome, ${data.user.name}. Admin session started.`);
+      await load(data.token);
+      await loadFleet(data.token);
+    } catch (_error) {
+      setMessage(`Cannot connect to the bus-tracker API at ${API}. Start the backend on port 5001, or set NEXT_PUBLIC_API_URL to your deployed backend URL in frontend/.env.local, then restart Next.js.`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function load(tokenValue = token) {
