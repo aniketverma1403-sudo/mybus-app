@@ -1,7 +1,8 @@
 'use client';
 import { FormEvent, useEffect, useState } from 'react';
+import { API_BASE_URL as API, API_SETUP_MESSAGE } from '@/utils/api';
 
-const API = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '')).replace(/\/+$/, '');
+
 type Overview = { buses: number; routes: number; activeTrips: number };
 type Bus = { _id: string; busNumber: string; licensePlate: string; capacity: number; studentCount: number; driverId?: string | { _id: string; name: string }; routeId?: string | { _id: string; routeName: string } };
 type Route = { _id: string; routeName: string; schoolId: string; stops?: unknown[] };
@@ -59,7 +60,7 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       if (!API) {
-        setMessage('Backend URL is not configured. Set NEXT_PUBLIC_API_URL to your deployed backend URL in Netlify, then redeploy the frontend.');
+        setMessage('Backend URL is not configured for this deployment. Set NEXT_PUBLIC_API_URL in Netlify to your deployed backend HTTPS URL (not localhost), then trigger a new production deploy.');
         return;
       }
       const response = await fetch(`${API}/api/auth/login`, {
@@ -121,6 +122,7 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
+    if (!API) { setMessage(API_SETUP_MESSAGE); return; }
     const saved = localStorage.getItem('adminToken') || '';
     setToken(saved);
     if (saved) { load(saved); loadFleet(saved); }
