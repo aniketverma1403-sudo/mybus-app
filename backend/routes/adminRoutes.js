@@ -83,10 +83,11 @@ router.delete('/buses/:id', async (req, res, next) => {
     const bus = await Bus.findById(req.params.id);
     if (!bus) return res.status(404).json({ message: 'Bus not found.' });
     if (await TripSession.exists({ busId: bus._id, status: 'active' })) {
-      return res.status(409).json({ message: 'End the active trip before deleting this bus.' });
+      await TripSession.updateMany({ busId: bus._id, status: 'active' }, { $set: { status: 'cancelled', endedAt: new Date() } });
     }
     await Promise.all([
       User.updateMany({ assignedBusId: bus._id }, { $set: { assignedBusId: null } }),
+      Student.updateMany({ busId: bus._id }, { $unset: { busId: '', routeId: '', pickupStop: '', dropStop: '' } }),
       TripSession.updateMany({ busId: bus._id, status: 'active' }, { $set: { status: 'cancelled', endedAt: new Date() } })
     ]);
     if (bus.driverId) await User.findByIdAndUpdate(bus.driverId, { assignedBusId: null });
