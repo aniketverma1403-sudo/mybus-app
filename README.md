@@ -45,13 +45,17 @@ Open `http://localhost:3000`. Check `http://localhost:5001/api/health` returns `
 
 ## 4. Deployment (Netlify + Render)
 
-1. Create a persistent MongoDB Atlas database and allow your backend host to connect to it.
-2. Deploy `backend` as a Node service on Render with **Root Directory** `backend`, **Build Command** `npm install`, and **Start Command** `npm start`.
-3. Set Render environment variables: `NODE_ENV=production`, `USE_MEMORY_DB=false`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_URL=https://YOUR-NETLIFY-SITE.netlify.app`, and `SCHOOL_ID`. Add `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` temporarily, then run `npm run create-admin` in the Render shell using those same environment values. Do not set `USE_MEMORY_DB=true` in production.
-4. Set Netlify environment variable `NEXT_PUBLIC_API_URL=https://YOUR-RENDER-SERVICE.onrender.com` and `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` if using the map. Trigger a new frontend deploy after setting these variables.
-5. Open `https://YOUR-RENDER-SERVICE.onrender.com/api/health`; it must return `{"status":"ok"}`. Then use the administrator email and password you created—not the local demo credentials.
+**Why local sign-in can work while Netlify sign-in fails:** local development can use a temporary in-memory database and the demo admin. Netlify is a separate hosted frontend and cannot access your computer's `localhost:5001`; it needs a separately hosted API connected to a persistent database, with a production admin account.
 
-A deployed Netlify frontend cannot reach `localhost:5001` on your Mac. The API must be publicly deployed and the frontend must be rebuilt with its URL.
+1. Create a persistent MongoDB Atlas database and allow your backend host to connect to it.
+2. In Render, create a new Blueprint from this repository using `render.yaml`, or create a Node web service manually with **Root Directory** `backend`, **Build Command** `npm install`, **Start Command** `npm start`, and **Health Check Path** `/api/health`.
+3. Set Render environment variables: `NODE_ENV=production`, `USE_MEMORY_DB=false`, `MONGODB_URI`, `JWT_SECRET`, `CLIENT_URL`, and `SCHOOL_ID=school-demo`. `CLIENT_URL` must be the exact Netlify site origin, such as `https://your-site.netlify.app`, with no trailing slash. For a deploy-preview domain, include it as another comma-separated origin only if you use it. Do not set `USE_MEMORY_DB=true` in production.
+4. Create the admin in the Render Shell against the production database. Set the required variables for that command and run it, for example: `ADMIN_NAME='Demo Interview Admin' ADMIN_EMAIL='your-admin@example.com' ADMIN_PASSWORD='use-a-unique-long-password' SCHOOL_ID='school-demo' npm run create-admin`. Use a real email format and a unique password you choose; never use the local demo password in production. Do not put this password in GitHub or in the frontend.
+5. Copy the actual public service URL shown by Render. Test `https://YOUR-RENDER-SERVICE.onrender.com/api/health`; it must return `{"status":"ok"}`.
+6. In Netlify → **Site configuration → Environment variables**, set `NEXT_PUBLIC_API_URL` to that actual Render service URL (no trailing slash). Keep `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` if using the map. Trigger **Clear cache and deploy site** or a new deploy so Next.js rebuilds with the value.
+7. Open the deployed Netlify URL in a private/incognito window and sign in using the production admin email/password from step 4. Do not use `admin@school.com` / `Demo@1234` unless you explicitly created that account in the persistent production database.
+
+`CLIENT_URL` must match the Netlify site's exact origin, including `https://`. The backend now strips trailing slashes from configured origins. A deployed Netlify frontend cannot reach `localhost:5001` on your Mac. If the health endpoint works but login fails, inspect the browser DevTools → Network request to `/api/auth/login`: `Failed to fetch` usually means a wrong API URL/CORS/network issue; HTTP `401` means the credentials are not in that production database; HTTP `500` means backend configuration/database/auth setup needs checking.
 
 ## 3. Basic workflow
 
