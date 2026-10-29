@@ -86,9 +86,26 @@ async function start() {
   if (!mongoUri) throw new Error('MONGODB_URI is required in backend/.env or enable USE_MEMORY_DB');
   if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is required in backend/.env');
   await mongoose.connect(mongoUri);
-  await ensureDemoData();
+  // Seed predictable demo accounts only in development. Production administrators must be
+  // created explicitly with `npm run create-admin` and unique credentials.
+  if (process.env.NODE_ENV !== 'production') {
+    await ensureDemoData();
+    console.log('Development demo accounts are enabled. Never use these credentials in production.');
+  }
   const port = Number(process.env.PORT) || 5001;
-  server.listen(port, () => console.log(`Bus tracker API listening on http://localhost:${port}`));
+  await new Promise((resolve, reject) => {
+    const onError = (error) => {
+      if (error.code === 'EADDRINUSE') {
+        reject(new Error(`Port ${port} is already in use. Stop the older backend process or set PORT to another free port in backend/.env.`));
+      } else reject(error);
+    };
+    server.once('error', onError);
+    server.listen(port, () => {
+      server.off('error', onError);
+      console.log(`Bus tracker API listening on http://localhost:${port}`);
+      resolve();
+    });
+  });
   const shutdown = async () => { await mongoose.disconnect(); await memoryServer?.stop(); server.close(() => process.exit(0)); };
   process.once('SIGINT', shutdown); process.once('SIGTERM', shutdown);
 }
@@ -96,8 +113,17 @@ async function ensureDemoData() {
   const defaultPassword = 'Demo@1234';
   const schoolId = process.env.SCHOOL_ID || 'school-demo';
   let admin = await User.findOne({ email: 'admin@school.com' });
-  if (!admin) admin = await User.create({ name: 'Demo School Admin', email: 'admin@school.com', password: defaultPassword, role: 'admin', schoolId });
-  else await User.updateOne({ _id: admin._id }, { $set: { schoolId } });
+  if (!admin) {
+    admin = await User.create({ name: 'Demo School Admin', email: 'admin@school.com', password: defaultPassword, role: 'admin', schoolId });
+  } else {
+    // In development only, make the documented demo credentials deterministic, even if an
+    // earlier test accidentally created this email with a different role or password.
+    admin.name = 'Demo School Admin';
+    admin.role = 'admin';
+    admin.password = defaultPassword;
+    admin.schoolId = schoolId;
+    await admin.save();
+  }
 
   let driver = await User.findOne({ email: 'ramesh@school.com' });
   if (!driver) driver = await User.create({ name: 'Ramesh Kumar', email: 'ramesh@school.com', phone: '+91 98765 43210', password: defaultPassword, role: 'driver', schoolId });
