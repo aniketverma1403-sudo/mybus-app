@@ -35,6 +35,7 @@ export default function DriverTracker() {
       if (watchId.current === null) {
         watchId.current = navigator.geolocation.watchPosition((position) => {
           socket.emit('update-location', { tripId: data.trip._id, busId: data.bus._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
+          fetch(`${API}/api/trips/${data.trip._id}/location`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${savedToken}` }, body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }) }).catch(() => undefined);
         }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
       }
     } else {
@@ -99,6 +100,7 @@ export default function DriverTracker() {
     if (watchId.current === null && tripIdToShare && currentAssignment.bus?._id) {
       watchId.current = navigator.geolocation.watchPosition((position) => {
         socket.emit('update-location', { tripId: tripIdToShare, busId: currentAssignment.bus?._id, latitude: position.coords.latitude, longitude: position.coords.longitude });
+        fetch(`${API}/api/trips/${tripIdToShare}/location`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }) }).catch(() => undefined);
       }, () => setStatus('Location permission is required while driving.'), { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
     }
   }

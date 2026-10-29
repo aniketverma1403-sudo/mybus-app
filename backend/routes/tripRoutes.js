@@ -42,6 +42,24 @@ router.post('/:id/end', auth('driver'), async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/:id/location', auth('driver'), async (req, res, next) => {
+  try {
+    const { latitude, longitude } = req.body || {};
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!validId(req.params.id) || !Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ message: 'A valid trip ID and GPS position are required.' });
+    }
+    const trip = await TripSession.findOneAndUpdate(
+      { _id: req.params.id, driverId: req.user.sub, status: 'active' },
+      { currentLocation: { latitude: lat, longitude: lng }, updatedAt: new Date() },
+      { new: true }
+    );
+    if (!trip) return res.status(404).json({ message: 'Active trip not found for this driver.' });
+    res.json(trip);
+  } catch (error) { next(error); }
+});
+
 router.get('/active/:busId', auth(['parent', 'admin']), async (req, res, next) => {
   try {
     if (!validId(req.params.busId)) return res.status(400).json({ message: 'Invalid bus ID.' });
