@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { socket } from '@/utils/socket';
 
 const LiveMap = dynamic(() => import('./LiveMap'), { ssr: false });
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const API = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : '')).replace(/\/+$/, '');
 type Position = { lat: number; lng: number };
 type Stop = { stopName: string; latitude: number; longitude: number; orderIndex: number };
 type Driver = { name: string; phone?: string; email?: string };
@@ -103,6 +103,7 @@ export default function ParentMap() {
     setLoading(true);
     setStatus('Signing in…');
     try {
+      if (!API) { setStatus('Backend URL is not configured. Set NEXT_PUBLIC_API_URL to your deployed backend URL and redeploy the frontend.'); return; }
       if (registering) {
         const registration = await fetch(`${API}/api/auth/register`, {
           method: 'POST',
