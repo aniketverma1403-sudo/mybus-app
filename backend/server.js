@@ -18,7 +18,7 @@ const Route = require('./models/Route');
 
 const app = express();
 const server = http.createServer(app);
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map((origin) => origin.trim());
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map((origin) => origin.trim().replace(/\\/+$/, '')).filter(Boolean);
 const io = new Server(server, { cors: { origin: allowedOrigins, credentials: true } });
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins, credentials: true }));
